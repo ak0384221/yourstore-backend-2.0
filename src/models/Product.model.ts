@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { ref } from "node:process";
 import { Brand } from "./Brand.model";
 import { Category } from "./Category.model";
 import { Discount } from "./Discount.model";
