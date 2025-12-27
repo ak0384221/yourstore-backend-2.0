@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A production grade backend for my existing yourstore project",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -17,7 +18,11 @@
   },
   "homepage": "https://github.com/ak0384221/yourstore-backend-2.0#readme",
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^25.0.3",
+    "prettier": "^3.7.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
@@ -26,6 +31,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "mongoose": "^9.0.2",
     "nodemon": "^3.1.11"
   }
 }
