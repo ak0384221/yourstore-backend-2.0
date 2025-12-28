@@ -3,9 +3,15 @@ import { Brand } from "./Brand.model";
 import { Category } from "./Category.model";
 import { Discount } from "./Discount.model";
 
-const imageSchema = new mongoose.Schema({
+const ImageSchema = new mongoose.Schema({
   src: { type: String, required: true },
   alt: { type: String, required: true },
+});
+
+const VarientSchema = new mongoose.Schema({
+  size: { type: String, required: true },
+  color: { type: String, required: true },
+  stock: { type: Number, required: true },
 });
 
 const ProductSchema = new mongoose.Schema({
@@ -32,11 +38,12 @@ const ProductSchema = new mongoose.Schema({
     default: 0,
   },
 
-  images: [imageSchema],
+  images: [ImageSchema],
   brand: {
     type: mongoose.Schema.Types.ObjectId,
     ref: Brand,
   },
+  varients: [VarientSchema],
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: Category,
