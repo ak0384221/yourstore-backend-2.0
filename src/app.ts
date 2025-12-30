@@ -8,4 +8,6 @@ app.use(e.urlencoded({ extended: true }));
 app.use(e.static("public"));
 app.use(cookieParser());
 
+//routes
+
 export { app };
