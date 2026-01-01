@@ -8,6 +8,10 @@ app.use(e.urlencoded({ extended: true }));
 app.use(e.static("public"));
 app.use(cookieParser());
 
-//routes
+//routes import
+import userRouter from "./routes/user.routes.ts";
+
+//routes declaration
+app.use("/api/v1/auth", userRouter);
 
 export { app };
