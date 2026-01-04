@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { SignOptions } from "jsonwebtoken";
 const UserSchema = new mongoose.Schema(
   {
     fullName: {
@@ -29,6 +28,7 @@ const UserSchema = new mongoose.Schema(
     },
     refreshToken: {
       type: String,
+      default: undefined,
     },
     address: {
       type: String,
@@ -49,7 +49,7 @@ UserSchema.methods.isPasswordCorrect = async function (password: string) {
   return await bcrypt.compare(password, this.password);
 };
 
-UserSchema.methods.generateAccessToken = async function () {
+UserSchema.methods.generateAccessToken = function () {
   const payload = {
     id: this._id,
   };
