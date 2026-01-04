@@ -99,7 +99,6 @@ const login = asyncHandler(async function (req, res) {
 });
 
 const logout = asyncHandler(async function (req, res) {
-  console.log("logout");
   const user = req.user;
   if (!user) {
     throw new ApiError(505, "coudnt find user");
@@ -170,4 +169,18 @@ const refreshAccessToken = asyncHandler(async (req, res, next) => {
     );
 });
 
-export { signUp, login, logout, refreshAccessToken };
+const changePassword = asyncHandler(async (req, res) => {
+  const { oldPass, newPass } = req.body;
+  const user = await User.findById(req.user._id);
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPass);
+  if (!isPasswordCorrect) {
+    throw new ApiError(400, "invalid credentials");
+  }
+
+  user.password = newPass;
+  await user.save({ validateBeforeSave: false });
+
+  return res.status(200).json(new ApiResponse(200, {}, "pass changed"));
+});
+
+export { signUp, login, logout, refreshAccessToken, changePassword };
