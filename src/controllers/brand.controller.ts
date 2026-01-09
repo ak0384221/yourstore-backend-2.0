@@ -1,9 +1,9 @@
-import { Category } from "../models/Category.model.ts";
+import { Brand } from "../models/Brand.model.ts";
 import { ApiError } from "../utils/apiError.ts";
 import { ApiResponse } from "../utils/apiResponse.ts";
 import { asyncHandler } from "../utils/asyncHandler.ts";
 
-const createCategories = asyncHandler(async (req, res) => {
+const createBrands = asyncHandler(async (req, res) => {
   //get the name from body
   //trim and check if length not empty
   //transform in lowercase and use reg for spaces
@@ -14,26 +14,25 @@ const createCategories = asyncHandler(async (req, res) => {
   console.log(name);
 
   if (!name || name.trim() === "") {
-    throw new ApiError(400, "category name is required");
+    throw new ApiError(400, "brand name is required");
   }
 
   const slug = name.toLowerCase().trim().replace(/\s+/g, "-");
   console.log(slug);
 
-  const existing = await Category.findOne({ slug });
+  const existing = await Brand.findOne({ slug });
   if (existing) {
-    throw new ApiError(500, "category already exist");
+    throw new ApiError(500, "Brand already exist");
   }
 
-  const newCategory = await Category.create({
+  const newBrand = await Brand.create({
     name: name.trim(),
     slug,
   });
 
-  // console.log("successfully created category", name);
   return res
     .status(200)
-    .json(new ApiResponse(200, newCategory, "new category created"));
+    .json(new ApiResponse(200, newBrand, "new brand created"));
 });
 
-export { createCategories };
+export { createBrands };
