@@ -25,8 +25,8 @@ const DiscountSchema = new mongoose.Schema(
     },
     productIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }], // optional
     categoryIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Category" }], // optional
-    startDate: { type: Date },
-    endDate: { type: Date },
+    startDate: { type: Date, required: true },
+    endDate: { type: Date, required: true },
   },
   { timestamps: true }
 );

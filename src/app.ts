@@ -12,10 +12,12 @@ app.use(cookieParser());
 import userRouter from "./routes/user.routes.ts";
 import { createCategories } from "./controllers/category.controller.ts";
 import { createBrands } from "./controllers/brand.controller.ts";
+import { createDiscount } from "./controllers/discount.controller.ts";
 
 //routes declaration
 app.use("/api/v1/auth", userRouter);
 app.post("/api/v1/categories/:name", createCategories);
 app.post("/api/v1/brands/:name", createBrands);
+app.post("/api/v1/discounts", createDiscount);
 
 export { app };
