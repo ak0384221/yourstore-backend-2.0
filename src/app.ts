@@ -13,9 +13,11 @@ import userRouter from "./routes/user.routes.ts";
 import { createCategories } from "./controllers/category.controller.ts";
 import { createBrands } from "./controllers/brand.controller.ts";
 import { createDiscount } from "./controllers/discount.controller.ts";
+import productRouter from "./routes/product.routes.ts";
 
 //routes declaration
 app.use("/api/v1/auth", userRouter);
+app.use("/api/v1/products", productRouter);
 app.post("/api/v1/categories/:name", createCategories);
 app.post("/api/v1/brands/:name", createBrands);
 app.post("/api/v1/discounts", createDiscount);
