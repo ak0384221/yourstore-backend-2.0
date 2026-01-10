@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import { ApiError } from "../utils/apiError.ts";
 import { asyncHandler } from "../utils/asyncHandler.ts";
+import { Product } from "../models/Product.model.ts";
+import { ApiResponse } from "../utils/apiResponse.ts";
 
 const smartphones = [
   {
@@ -522,12 +524,12 @@ const addProducts = asyncHandler(async (req, res) => {
     discount
   );
   //title validation
-  if (!title || title.trim().length! > 5) {
+  if (!title || title.trim().length < 6) {
     throw new ApiError(400, "title is required");
   }
 
   //desc validation
-  if (!description || description.trim().length! > 19) {
+  if (!description || description.trim().length < 20) {
     throw new ApiError(400, "description is required");
   }
 
@@ -560,6 +562,28 @@ const addProducts = asyncHandler(async (req, res) => {
   if (discount && !mongoose.Types.ObjectId.isValid(discount)) {
     throw new ApiError(400, "invalid discount id");
   }
+
+  const new_product = await Product.create({
+    title,
+    description,
+    base_price,
+    brand,
+    category,
+    discount: discount ?? null,
+    images,
+    varients,
+  });
+  console.log(new_product);
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        new_product,
+        "new product succesfully added to database"
+      )
+    );
 });
 
 export { addProducts };

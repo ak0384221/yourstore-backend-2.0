@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
-import { Brand } from "./Brand.model";
-import { Category } from "./Category.model";
-import { Discount } from "./Discount.model";
+import { Brand } from "./Brand.model.ts";
+import { Category } from "./Category.model.ts";
+import { Discount } from "./Discount.model.ts";
 
 const ImageSchema = new mongoose.Schema({
   src: { type: String, required: true },
