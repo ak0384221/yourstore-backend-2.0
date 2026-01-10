@@ -6,7 +6,6 @@ import jwt from "jsonwebtoken";
 const verifyJWT = asyncHandler(async (req, res, next) => {
   const token =
     req.cookies || req.header("Authorization")?.replace("Bearer", "");
-  console.log(token);
   if (!token) {
     throw new ApiError(404, "unauthorized");
   }
@@ -15,15 +14,20 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
     process.env.ACCESS_TOKEN_SECRET!
   );
 
-  console.log("decoded token is", decoded);
   const user = await User.findById(decoded?.id).select(
     "-password -refreshToken"
   );
-  console.log("user is", user);
 
   req.user = user;
 
   next();
 });
 
-export { verifyJWT };
+const verifyAdminRole = asyncHandler(async (req, res, next) => {
+  const user = req.user;
+  if (user.role != "admin") {
+    throw new ApiError(404, "unauthorized");
+  }
+  next();
+});
+export { verifyJWT, verifyAdminRole };

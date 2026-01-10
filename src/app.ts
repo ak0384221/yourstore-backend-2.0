@@ -14,12 +14,21 @@ import { createCategories } from "./controllers/category.controller.ts";
 import { createBrands } from "./controllers/brand.controller.ts";
 import { createDiscount } from "./controllers/discount.controller.ts";
 import productRouter from "./routes/product.routes.ts";
+import {
+  verifyAdminRole,
+  verifyJWT,
+} from "./middlewares/authentication.middleware.ts";
 
 //routes declaration
 app.use("/api/v1/auth", userRouter);
 app.use("/api/v1/products", productRouter);
-app.post("/api/v1/categories/:name", createCategories);
-app.post("/api/v1/brands/:name", createBrands);
-app.post("/api/v1/discounts", createDiscount);
+app.post(
+  "/api/v1/categories/:name",
+  verifyJWT,
+  verifyAdminRole,
+  createCategories
+);
+app.post("/api/v1/brands/:name", verifyJWT, verifyAdminRole, createBrands);
+app.post("/api/v1/discounts", verifyJWT, verifyAdminRole, createDiscount);
 
 export { app };
