@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { addProducts } from "../controllers/product.controller.ts";
+import {
+  addProducts,
+  removeProducts,
+} from "../controllers/product.controller.ts";
 import {
   verifyAdminRole,
   verifyJWT,
@@ -7,5 +10,6 @@ import {
 
 const productRouter = Router();
 productRouter.route("/").post(verifyJWT, verifyAdminRole, addProducts);
+productRouter.route("/:id").delete(verifyJWT, verifyAdminRole, removeProducts);
 
 export default productRouter;

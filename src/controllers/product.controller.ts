@@ -586,4 +586,18 @@ const addProducts = asyncHandler(async (req, res) => {
     );
 });
 
-export { addProducts };
+const removeProducts = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const user = req.user;
+  if (!user || user.role !== "admin") {
+    throw new ApiError(400, "Permission denied");
+  }
+
+  const deleted_product = await Product.findByIdAndDelete(id);
+  res
+    .status(200)
+    .json(new ApiResponse(200, deleted_product, "product deleted succesfully"));
+});
+
+export { addProducts, removeProducts };
