@@ -18,10 +18,12 @@ import {
   verifyAdminRole,
   verifyJWT,
 } from "./middlewares/authentication.middleware.ts";
+import cartRouter from "./routes/cart.routes.ts";
 
 //routes declaration
 app.use("/api/v1/auth", userRouter);
 app.use("/api/v1/products", productRouter);
+app.use("/api/v1/cart", cartRouter);
 app.post(
   "/api/v1/categories/:name",
   verifyJWT,

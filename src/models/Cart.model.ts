@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { Product } from "./Product.model";
+import { Product } from "./Product.model.ts";
 
 const CartItemSchema = new mongoose.Schema({
   product: {
@@ -7,13 +7,18 @@ const CartItemSchema = new mongoose.Schema({
     ref: Product,
     required: true,
   },
-  size: {
+  selectedSize: {
     type: String,
     required: true,
   },
-  color: {
+  selectedColor: {
     type: String,
     required: true,
+  },
+  selectedQuantity: {
+    type: Number,
+    required: true,
+    min: 1,
   },
 });
 
@@ -23,7 +28,7 @@ const CartSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       required: true,
     },
-    Items: [CartItemSchema],
+    items: [CartItemSchema],
   },
   { timestamps: true }
 );
