@@ -1,4 +1,4 @@
-import { Cart } from "../models/Cart.model.ts";
+import { Cart, CartItemSchema } from "../models/Cart.model.ts";
 import { Product } from "../models/Product.model.ts";
 import { ApiError } from "../utils/apiError.ts";
 import { ApiResponse } from "../utils/apiResponse.ts";
@@ -15,21 +15,22 @@ const addToCart = asyncHandler(async (req, res) => {
 
   //getting the fields
   const { productId, selectedSize, selectedColor, selectedQuantity } = req.body;
-  console.log(productId, selectedSize, selectedColor, selectedQuantity);
   //get the user
   const user = req.user;
   //validate fields
   if (
-    [productId, selectedSize, selectedColor, selectedQuantity].some(
-      (field) => !field || field?.trim() === ""
-    )
+    !productId ||
+    !selectedSize ||
+    !selectedColor ||
+    selectedQuantity == null
   ) {
     throw new ApiError(400, "fields must not be empty");
   }
+
   //-------------------------------------------------------------------------------//
 
   //1.find the user from cart
-  const userExisted = await Cart.findById(user._id);
+  const userExisted = await Cart.findOne({ userId: user._id });
 
   //2.if not found create new cart
   if (!userExisted) {
@@ -63,7 +64,7 @@ const addToCart = asyncHandler(async (req, res) => {
       ],
     });
 
-    res
+    return res
       .status(200)
       .json(new ApiResponse(200, newCartItem, "cart item added succesfully"));
   }
@@ -78,7 +79,7 @@ const addToCart = asyncHandler(async (req, res) => {
         item.selectedSize === selectedSize
     );
     if (existingItem) {
-      if (existingItem.selectedQuantity === selectedQuantity) {
+      if (existingItem.selectedQuantity === Number(selectedQuantity)) {
         // Exact same item already in cart → reject
         throw new ApiError(500, "product already existed");
       } else {
@@ -86,7 +87,7 @@ const addToCart = asyncHandler(async (req, res) => {
         existingItem.selectedQuantity = selectedQuantity;
         await userExisted.save();
 
-        res
+        return res
           .status(200)
           .json(
             new ApiResponse(200, "cart items quantity updated succesfully")
@@ -111,19 +112,16 @@ const addToCart = asyncHandler(async (req, res) => {
         throw new ApiError(400, "product unavailable");
       }
       //create new cart item
-      const newCartItem = await Cart.create({
-        userId: user._id,
-        items: [
-          {
-            product: productId,
-            selectedColor,
-            selectedSize,
-            selectedQuantity,
-          },
-        ],
+      userExisted.items.push({
+        product: productId,
+        selectedColor,
+        selectedSize,
+        selectedQuantity,
       });
 
-      res
+      const newCartItem = await userExisted.save();
+
+      return res
         .status(200)
         .json(new ApiResponse(200, newCartItem, "cart item added succesfully"));
     }
