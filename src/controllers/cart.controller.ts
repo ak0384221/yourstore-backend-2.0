@@ -21,6 +21,11 @@ const addToCart = asyncHandler(async (req, res) => {
   ) {
     throw new ApiError(400, "fields must not be empty");
   }
+  //0 check the limit
+  const isLimitExceed = await Cart.countDocuments({ userId: user._id });
+  if (isLimitExceed > 20) {
+    throw new ApiError(500, "cart is full, cannot add more than 20");
+  }
 
   //1.find the user cart from cart
   const existedCartItem = await Cart.findOne({
@@ -68,4 +73,34 @@ const addToCart = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, updatedItem, "cart item added succesfully"));
 });
 
-export { addToCart };
+const removeFromCart = asyncHandler(async (req, res) => {
+  const { productid } = req.params;
+  if (!productid || productid == "") {
+    throw new ApiError(400, "id is required");
+  }
+  const user = req.user;
+
+  const cartItem = await Cart.findOneAndDelete({
+    userId: user._id,
+    product: productid,
+  });
+  if (!cartItem) {
+    throw new ApiError(500, "cannot find the item !!!");
+  }
+
+  res.status(200).json(new ApiResponse(200, cartItem, "item deleted"));
+});
+
+const getAllCart = asyncHandler(async (req, res) => {
+  const user = req.user;
+  const userCartItems = await Cart.find({ userId: user._id });
+  if (!userCartItems) {
+    throw new ApiError(500, "empty cart !! no item found");
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, userCartItems, "succesfully found the items"));
+});
+
+export { addToCart, removeFromCart, getAllCart };
