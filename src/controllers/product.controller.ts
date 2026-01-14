@@ -113,4 +113,45 @@ const removeProducts = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, deleted_product, "product deleted succesfully"));
 });
 
-export { addProducts, removeProducts };
+const getProducts = asyncHandler(async (req, res) => {
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const filters = {};
+  //Product.find({category:'mobiles',title:{$regex:''phone,options:'i'},base_price:{$gte:''}})
+
+  if (req.query.category) {
+    filters.category = req.query.category;
+  }
+
+  if (req.query.search) {
+    filters.title = {
+      $regex: req.query.search,
+      $options: "i",
+    };
+  }
+
+  if (req.query.minPrice || req.query.maxPrice) {
+    filters.base_price = {};
+    if (req.query.minPrice) {
+      filters.base_price.$gte = Number(req.query.minPrice);
+    }
+    if (req.query.maxPrice) {
+      filters.base_price.$lte = Number(req.query.maxPrice);
+    }
+  }
+
+  const products = await Product.find(filters).skip(skip).limit(limit);
+  const total = await Product.countDocuments(filters);
+  res.status(200).json(
+    new ApiResponse(200, {
+      products,
+      length: total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    })
+  );
+});
+
+export { addProducts, removeProducts, getProducts };
