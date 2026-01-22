@@ -10,8 +10,11 @@ app.use(cookieParser());
 
 //routes import
 import userRouter from "./routes/user.routes.ts";
-import { createCategories } from "./controllers/category.controller.ts";
-import { createBrands } from "./controllers/brand.controller.ts";
+import {
+  createCategories,
+  getAllCategory,
+} from "./controllers/category.controller.ts";
+import { createBrands, getAllBrand } from "./controllers/brand.controller.ts";
 import { createDiscount } from "./controllers/discount.controller.ts";
 import productRouter from "./routes/product.routes.ts";
 import {
@@ -21,6 +24,7 @@ import {
 import cartRouter from "./routes/cart.routes.ts";
 
 //routes declaration
+
 app.use("/api/v1/auth", userRouter);
 app.use("/api/v1/products", productRouter);
 app.use("/api/v1/cart", cartRouter);
@@ -30,7 +34,9 @@ app.post(
   verifyAdminRole,
   createCategories
 );
+app.get("/api/v1/categories", getAllCategory);
 app.post("/api/v1/brands/:name", verifyJWT, verifyAdminRole, createBrands);
+app.get("/api/v1/brands", getAllBrand);
 app.post("/api/v1/discounts", verifyJWT, verifyAdminRole, createDiscount);
 
 export { app };

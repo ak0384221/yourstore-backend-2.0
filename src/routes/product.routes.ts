@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  addManyProducts,
   addProducts,
   getProducts,
   removeProducts,
@@ -8,9 +9,10 @@ import {
   verifyAdminRole,
   verifyJWT,
 } from "../middlewares/authentication.middleware.ts";
+import { upload } from "../middlewares/multer.middleware.ts";
 
 const productRouter = Router();
-productRouter.route("/").post(verifyJWT, verifyAdminRole, addProducts);
+productRouter.route("/").post(addManyProducts);
 productRouter.route("/:id").delete(verifyJWT, verifyAdminRole, removeProducts);
 productRouter.route("/").get(getProducts);
 export default productRouter;

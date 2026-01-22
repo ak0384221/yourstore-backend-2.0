@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import { Brand } from "./Brand.model.ts";
 import { Category } from "./Category.model.ts";
 import { Discount } from "./Discount.model.ts";
+import { ReturnPolicy } from "./ReturnPolicy.model.ts";
+import { WarrantyPolicy } from "./WarrantyInfo.model.ts";
 
 const ImageSchema = new mongoose.Schema({
   src: { type: String, required: true },
@@ -12,6 +14,12 @@ const VarientSchema = new mongoose.Schema({
   size: { type: String, required: true },
   color: { type: String, required: true },
   stock: { type: Number, required: true },
+});
+
+const DimensionSchema = new mongoose.Schema({
+  width: { type: String, required: true },
+  height: { type: String, required: true },
+  depth: { type: Number, required: true },
 });
 
 const ProductSchema = new mongoose.Schema({
@@ -38,13 +46,17 @@ const ProductSchema = new mongoose.Schema({
     default: 0,
   },
 
-  images: [ImageSchema],
+  images: { type: [ImageSchema], required: true },
   brand: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: Brand,
+    ref: "Brand",
+
+    default: null,
+  },
+  varients: {
+    type: [VarientSchema],
     required: true,
   },
-  varients: [VarientSchema],
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: Category,
@@ -53,6 +65,20 @@ const ProductSchema = new mongoose.Schema({
   discount: {
     type: mongoose.Schema.Types.ObjectId,
     ref: Discount,
+    default: null,
+  },
+  dimensions: {
+    type: [DimensionSchema],
+    required: true,
+  },
+  return_policy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: ReturnPolicy,
+    default: null,
+  },
+  warranty_info: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: WarrantyPolicy,
     default: null,
   },
 });

@@ -35,4 +35,11 @@ const createBrands = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, newBrand, "new brand created"));
 });
 
-export { createBrands };
+const getAllBrand = asyncHandler(async (req, res) => {
+  const brand = await Brand.find();
+  res
+    .status(200)
+    .json(new ApiResponse(200, brand, "all Brand succesfully extacted"));
+});
+
+export { createBrands, getAllBrand };

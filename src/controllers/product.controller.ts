@@ -3,7 +3,8 @@ import { ApiError } from "../utils/apiError.ts";
 import { asyncHandler } from "../utils/asyncHandler.ts";
 import { Product } from "../models/Product.model.ts";
 import { ApiResponse } from "../utils/apiResponse.ts";
-
+import { uploadOnCloudinary } from "../utils/cloudinary.ts";
+import fs from "fs";
 const addProducts = asyncHandler(async (req, res) => {
   //get all the necessary fields
   //validate fields
@@ -53,9 +54,9 @@ const addProducts = asyncHandler(async (req, res) => {
 
   //array:image validation
 
-  if (!Array.isArray(images) || !images.length) {
-    throw new ApiError(400, "images must be a non-empty array");
-  }
+  // if (!Array.isArray(images) || !images.length) {
+  //   throw new ApiError(400, "images must be a non-empty array");
+  // }
 
   //array:varients validation
 
@@ -76,6 +77,33 @@ const addProducts = asyncHandler(async (req, res) => {
     throw new ApiError(400, "invalid discount id");
   }
 
+  if (!req.files || req.files.length == 0) {
+    throw new ApiError(400, "images missing");
+  }
+  console.log(req.files, req.files.length);
+
+  const uploadedImages = [];
+
+  for (let i = 0; i < req.files.length; i++) {
+    const file = req.files[i];
+
+    // Upload to Cloudinary
+    const result = await uploadOnCloudinary(file.path);
+    console.log(result);
+    if (!result) {
+      throw new ApiError(500, "Failed to upload image to Cloudinary");
+    }
+
+    // Clean up local temp file (optional if your util already deletes it)
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+
+    // Add to images array in DB format
+    uploadedImages.push({
+      src: result.secure_url,
+      alt: req.body.alts?.[i] || "", // optional alt text
+    });
+  }
+
   const new_product = await Product.create({
     title,
     description,
@@ -83,7 +111,7 @@ const addProducts = asyncHandler(async (req, res) => {
     brand,
     category,
     discount: discount ?? null,
-    images,
+    images: uploadedImages,
     varients,
   });
   console.log(new_product);
@@ -153,5 +181,133 @@ const getProducts = asyncHandler(async (req, res) => {
     })
   );
 });
+
+// const addManyProducts = asyncHandler(async (req, res) => {
+//   async function fetchAll() {
+//     const res = await fetch("https://dummyjson.com/products?limit=0");
+//     const data = await res.json();
+//     return data.products;
+//   }
+//   const hashedCategory = {
+//     beauty: "696080d548c8014d2abb4af3",
+//     fragrances: "696080d548c8014d2abb4af4",
+//     "home-decoration": "696080d548c8014d2abb4af7",
+//     "kitchen-accessories": "696080d548c8014d2abb4af8",
+//     laptops: "696080d548c8014d2abb4af9",
+//     "mens-shirts": "696080d548c8014d2abb4afa",
+//     "mens-shoes": "696080d548c8014d2abb4afb",
+//     "mens-watches": "696080d548c8014d2abb4afc",
+//     "mobile-accessories": "696080d548c8014d2abb4afd",
+//     motorcycle: "696080d548c8014d2abb4afe",
+//     "skin-care": "696080d548c8014d2abb4aff",
+//     smartphones: "696080d548c8014d2abb4b00",
+//     "sports-accessories": "696080d548c8014d2abb4b01",
+//     sunglasses: "696080d548c8014d2abb4b02",
+//     tablets: "696080d548c8014d2abb4b03",
+//     tops: "696080d548c8014d2abb4b04",
+//     furniture: "696080d548c8014d2abb4af5",
+//     groceries: "696080d548c8014d2abb4af6",
+//     "womens-dresses": "696080d548c8014d2abb4b07",
+//     "womens-jewellery": "696080d548c8014d2abb4b08",
+//     "womens-shoes": "696080d548c8014d2abb4b09",
+//     "womens-watches": "696080d548c8014d2abb4b0a",
+//     "womens-bags": "696080d548c8014d2abb4b06",
+//     vehicle: "696080d548c8014d2abb4b05",
+//     "proggrammer-zone": "69608249e4467594d6486d60",
+//   };
+//   const hashedBrands = {
+//     essence: "69608db82dc7ec1791ea80ea",
+//     "velvet-touch": "69608db82dc7ec1791ea80ec",
+//     chanel: "69608db82dc7ec1791ea80f0",
+//     "calvin-klein": "69608db82dc7ec1791ea80ef",
+//     dior: "69608db82dc7ec1791ea80f1",
+//     "dolce-&-gabbana": "69608db82dc7ec1791ea80f2",
+//     gucci: "69608db82dc7ec1791ea80f3",
+//     "annibale-colombo": "69608db82dc7ec1791ea80f4",
+//     "furniture-co.": "69608db82dc7ec1791ea80f5",
+//     knoll: "69608db82dc7ec1791ea80f6",
+//     "bath-trends": "69608db82dc7ec1791ea80f7",
+//     apple: "69608db82dc7ec1791ea80f8",
+//     asus: "69608db82dc7ec1791ea80f9",
+//     huawei: "69608db82dc7ec1791ea80fa",
+//     lenovo: "69608db82dc7ec1791ea80fb",
+//     dell: "69608db82dc7ec1791ea80fc",
+//     "fashion-trends": "69608db82dc7ec1791ea80fd",
+//     gigabyte: "69608db82dc7ec1791ea80fe",
+//     "classic-wear": "69608db82dc7ec1791ea80ff",
+//     "casual-comfort": "69608db82dc7ec1791ea8100",
+//     "urban-chic": "69608db82dc7ec1791ea8101",
+//     nike: "69608db82dc7ec1791ea8102",
+//     puma: "69608db82dc7ec1791ea8103",
+//     "chic-cosmetics": "69608db82dc7ec1791ea80ed",
+//     "nail-couture": "69608db82dc7ec1791ea80ee",
+//     longines: "69608db82dc7ec1791ea8106",
+//     rolex: "69608db82dc7ec1791ea8107",
+//     amazon: "69608db82dc7ec1791ea8108",
+//     beats: "69608db82dc7ec1791ea8109",
+//     techgear: "69608db82dc7ec1791ea810a",
+//     gadgetmaster: "69608db82dc7ec1791ea810b",
+//     snaptech: "69608db82dc7ec1791ea810c",
+//     provision: "69608db82dc7ec1791ea810d",
+//     "generic-motors": "69608db82dc7ec1791ea810e",
+//     kawasaki: "69608db82dc7ec1791ea810f",
+//     speedmaster: "69608db82dc7ec1791ea8112",
+//     scootmaster: "69608db82dc7ec1791ea8111",
+//     motogp: "69608db82dc7ec1791ea8110",
+//     attitude: "69608db82dc7ec1791ea8113",
+//     olay: "69608db82dc7ec1791ea8114",
+//     vaseline: "69608db82dc7ec1791ea8115",
+//     oppo: "69608db82dc7ec1791ea8116",
+//     realme: "69608db82dc7ec1791ea8117",
+//     samsung: "69608db82dc7ec1791ea8118",
+//     vivo: "69608db82dc7ec1791ea8119",
+//     "fashion-shades": "69608db82dc7ec1791ea811a",
+//     "fashion-fun": "69608db82dc7ec1791ea811b",
+//     chrysler: "69608db82dc7ec1791ea811c",
+//     dodge: "69608db82dc7ec1791ea811d",
+//     fashionista: "69608db82dc7ec1791ea811e",
+//     "elegance-collection": "69608db82dc7ec1791ea8121",
+//     heshe: "69608db82dc7ec1791ea811f",
+//     prada: "69608db82dc7ec1791ea8120",
+//     "comfort-trends": "69608db82dc7ec1791ea8122",
+//     pampi: "69608db82dc7ec1791ea8124",
+//     "fashion-diva": "69608db82dc7ec1791ea8123",
+//     "fashion-express": "69608db82dc7ec1791ea8125",
+//     iwc: "69608db82dc7ec1791ea8126",
+//     "fashion-gold": "69608db82dc7ec1791ea8127",
+//     "fashion-co.": "69608db82dc7ec1791ea8128",
+//     "off-white": "69608db82dc7ec1791ea8104",
+//     "fashion-timepieces": "69608db82dc7ec1791ea8105",
+//     unknown: "69608ddfa0a4bf83e439d987",
+//   };
+
+//   async function mapped() {
+//     const products = await fetchAll();
+//     const mappedPro = products?.map((product) => {
+//       return {
+//         title: product?.title,
+//         description: product?.description,
+//         base_price: product?.price,
+//         category: hashedCategory[product.category],
+//         rating: product?.rating || 0,
+//         varients: [{ color: "default", size: "default", stock: product.stock }],
+//         images: product?.images?.map((img) => {
+//           return { src: img, alt: product?.title };
+//         }),
+//         brand: hashedBrands[product.brand?.trim()?.toLowerCase()] || null,
+//         discount: null,
+//         dimensions: product.dimensions,
+//         return_policy: null,
+
+//         warrantyInfo: null,
+//       };
+//     });
+//     console.log(mappedPro);
+//     return mappedPro;
+//   }
+//   const product = await mapped();
+//   const newProducts = await Product.insertMany(product);
+//   res.json(newProducts);
+// });
 
 export { addProducts, removeProducts, getProducts };
