@@ -172,9 +172,11 @@ const getProducts = asyncHandler(async (req, res) => {
 
   const products = await Product.find(filters).skip(skip).limit(limit);
   const total = await Product.countDocuments(filters);
+  const currentCount = products.length;
   res.status(200).json(
     new ApiResponse(200, {
       products,
+      count: currentCount,
       length: total,
       page,
       totalPages: Math.ceil(total / limit),

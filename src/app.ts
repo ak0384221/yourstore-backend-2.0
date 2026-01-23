@@ -22,6 +22,10 @@ import {
   verifyJWT,
 } from "./middlewares/authentication.middleware.ts";
 import cartRouter from "./routes/cart.routes.ts";
+import {
+  createReturnPolicy,
+  getAllReturnPolicy,
+} from "./controllers/returnPolicy.controller.ts";
 
 //routes declaration
 
@@ -38,5 +42,12 @@ app.get("/api/v1/categories", getAllCategory);
 app.post("/api/v1/brands/:name", verifyJWT, verifyAdminRole, createBrands);
 app.get("/api/v1/brands", getAllBrand);
 app.post("/api/v1/discounts", verifyJWT, verifyAdminRole, createDiscount);
+app.post(
+  "/api/v1/returnPolicy",
+  verifyJWT,
+  verifyAdminRole,
+  createReturnPolicy
+);
+app.post("/api/v1/warrantyInfo", verifyJWT, verifyAdminRole, createDiscount);
 
 export { app };
