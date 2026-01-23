@@ -1,3 +1,4 @@
+import { Product } from "../models/Product.model.ts";
 import { ReturnPolicy } from "../models/ReturnPolicy.model.ts";
 import { ApiError } from "../utils/apiError.ts";
 import { ApiResponse } from "../utils/apiResponse.ts";
@@ -10,10 +11,6 @@ const createReturnPolicy = asyncHandler(async (req, res) => {
   ) {
     throw new ApiError(404, "required field is missing or empty");
   }
-
-  // if (typeof returnInDays !== "number") {
-  //   throw new ApiError(404, "return days should be a number type");
-  // }
 
   const newPolicy = await ReturnPolicy.create({ title, policy, returnInDays });
   console.log(newPolicy);

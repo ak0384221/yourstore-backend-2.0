@@ -145,12 +145,13 @@ const getProducts = asyncHandler(async (req, res) => {
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit) || 10;
   const skip = (page - 1) * limit;
+  console.log(req.query.category);
 
   const filters = {};
   //Product.find({category:'mobiles',title:{$regex:''phone,options:'i'},base_price:{$gte:''}})
 
   if (req.query.category) {
-    filters.category = req.query.category;
+    filters.category = new mongoose.Types.ObjectId(String(req.query.category));
   }
 
   if (req.query.search) {
@@ -170,16 +171,70 @@ const getProducts = asyncHandler(async (req, res) => {
     }
   }
 
-  const products = await Product.find(filters).skip(skip).limit(limit);
-  const total = await Product.countDocuments(filters);
-  const currentCount = products.length;
+  // const products = await Product.find(filters).skip(skip).limit(limit);
+  const products = await Product.aggregate([
+    {
+      $match: filters,
+    },
+    {
+      $facet: {
+        products: [
+          { $sort: { score: -1, createdAt: -1 } }, // score from $search
+          { $skip: skip },
+          { $limit: limit },
+
+          {
+            $lookup: {
+              from: "brands",
+              localField: "brand",
+              foreignField: "_id",
+              as: "brand",
+            },
+          },
+          {
+            $unwind: {
+              path: "$brand",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+
+          {
+            $lookup: {
+              from: "discounts",
+              localField: "discount",
+              foreignField: "_id",
+              as: "discount",
+            },
+          },
+          {
+            $unwind: {
+              path: "$discount",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+
+          {
+            $project: {
+              title: 1,
+              base_price: 1,
+              rating: 1,
+              images: { $slice: ["$images", 2] },
+              varients: 1,
+              brand: { _id: 1, name: 1 },
+              discount: { amount: 1, type: 1 },
+            },
+          },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    },
+  ]);
+
+  // const total = await Product.countDocuments(filters);
+  // const currentCount = products.length;
   res.status(200).json(
     new ApiResponse(200, {
       products,
-      count: currentCount,
-      length: total,
-      page,
-      totalPages: Math.ceil(total / limit),
     })
   );
 });
