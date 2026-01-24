@@ -263,6 +263,96 @@ const getProducts = asyncHandler(async (req, res) => {
     })
   );
 });
+
+const getOneProduct = asyncHandler(async (req, res) => {
+  const { productId } = req.params;
+  if (!productId && productId == "") {
+    throw new ApiError(400, "Product id must be valid and not empty");
+  }
+  const _id = new mongoose.Types.ObjectId(productId);
+
+  const product = await Product.aggregate([
+    { $match: { _id } }, // Find the product by _id
+
+    // Look up Brand
+    {
+      $lookup: {
+        from: "brands", // collection name
+        localField: "brand",
+        foreignField: "_id",
+        as: "brand",
+      },
+    },
+    { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+
+    // Look up Category
+    {
+      $lookup: {
+        from: "categories",
+        localField: "category",
+        foreignField: "_id",
+        as: "category",
+      },
+    },
+    { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
+
+    // Look up Discount
+    {
+      $lookup: {
+        from: "discounts",
+        localField: "discount",
+        foreignField: "_id",
+        as: "discount",
+      },
+    },
+    { $unwind: { path: "$discount", preserveNullAndEmptyArrays: true } },
+
+    // Look up Return Policy
+    {
+      $lookup: {
+        from: "returnpolicies",
+        localField: "return_policy",
+        foreignField: "_id",
+        as: "return_policy",
+      },
+    },
+    { $unwind: { path: "$return_policy", preserveNullAndEmptyArrays: true } },
+
+    // Look up Warranty
+    {
+      $lookup: {
+        from: "warrantypolicies",
+        localField: "warranty_info",
+        foreignField: "_id",
+        as: "warranty_info",
+      },
+    },
+    { $unwind: { path: "$warranty_info", preserveNullAndEmptyArrays: true } },
+
+    // Optionally project fields for cleaner output
+    {
+      $project: {
+        title: 1,
+        description: 1,
+        base_price: 1,
+        rating: 1,
+        images: 1,
+        varients: 1,
+        dimensions: 1,
+        brand: { _id: 1, name: 1 },
+        category: { _id: 1, name: 1 },
+        discount: { amount: 1, type: 1 },
+        return_policy: 1,
+        warranty_info: 1,
+      },
+    },
+  ]);
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, product[0], "product found succesfully"));
+});
+
 //how i added the products in bulk
 // const addManyProducts = asyncHandler(async (req, res) => {
 //   async function fetchAll() {
@@ -392,4 +482,4 @@ const getProducts = asyncHandler(async (req, res) => {
 //   res.json(newProducts);
 // });
 
-export { addProducts, removeProducts, getProducts };
+export { addProducts, removeProducts, getProducts, getOneProduct };

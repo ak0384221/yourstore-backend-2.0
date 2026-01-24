@@ -16,7 +16,7 @@ import {
 } from "./controllers/category.controller.ts";
 import { createBrands, getAllBrand } from "./controllers/brand.controller.ts";
 import { createDiscount } from "./controllers/discount.controller.ts";
-import productRouter from "./routes/product.routes.ts";
+import productsRouter from "./routes/products.routes.ts";
 import {
   verifyAdminRole,
   verifyJWT,
@@ -26,11 +26,14 @@ import {
   createReturnPolicy,
   getAllReturnPolicy,
 } from "./controllers/returnPolicy.controller.ts";
+import productRouter from "./routes/product.route.ts";
 
 //routes declaration
 
 app.use("/api/v1/auth", userRouter);
-app.use("/api/v1/products", productRouter);
+app.use("/api/v1/products", productsRouter);
+app.use("/api/v1/product", productRouter);
+
 app.use("/api/v1/cart", cartRouter);
 app.post(
   "/api/v1/categories/:name",
