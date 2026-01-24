@@ -145,7 +145,6 @@ const getProducts = asyncHandler(async (req, res) => {
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit) || 10;
   const skip = (page - 1) * limit;
-  console.log(req.query.category);
 
   const filters = {};
   //Product.find({category:'mobiles',title:{$regex:''phone,options:'i'},base_price:{$gte:''}})
@@ -171,15 +170,52 @@ const getProducts = asyncHandler(async (req, res) => {
     }
   }
 
-  // const products = await Product.find(filters).skip(skip).limit(limit);
-  const products = await Product.aggregate([
-    {
-      $match: filters,
-    },
+  const pipeline = [];
+
+  if (req.query.search) {
+    pipeline.push({
+      $search: {
+        index: "products_search_index",
+        compound: {
+          should: [
+            {
+              autocomplete: {
+                query: req.query.search,
+                path: "title",
+                fuzzy: {
+                  maxEdits: 2,
+                  prefixLength: 1,
+                },
+              },
+            },
+            {
+              text: {
+                query: req.query.search,
+                path: "description",
+                fuzzy: {
+                  maxEdits: 1,
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    // expose search score
+    pipeline.push({
+      $addFields: {
+        score: { $meta: "searchScore" },
+      },
+    });
+  }
+
+  pipeline.push(
+    { $match: filters },
     {
       $facet: {
         products: [
-          { $sort: { score: -1, createdAt: -1 } }, // score from $search
+          { $sort: req.query.search ? { score: -1 } : { createdAt: -1 } },
           { $skip: skip },
           { $limit: limit },
 
@@ -191,12 +227,7 @@ const getProducts = asyncHandler(async (req, res) => {
               as: "brand",
             },
           },
-          {
-            $unwind: {
-              path: "$brand",
-              preserveNullAndEmptyArrays: true,
-            },
-          },
+          { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
 
           {
             $lookup: {
@@ -206,12 +237,7 @@ const getProducts = asyncHandler(async (req, res) => {
               as: "discount",
             },
           },
-          {
-            $unwind: {
-              path: "$discount",
-              preserveNullAndEmptyArrays: true,
-            },
-          },
+          { $unwind: { path: "$discount", preserveNullAndEmptyArrays: true } },
 
           {
             $project: {
@@ -227,18 +253,17 @@ const getProducts = asyncHandler(async (req, res) => {
         ],
         totalCount: [{ $count: "count" }],
       },
-    },
-  ]);
+    }
+  );
 
-  // const total = await Product.countDocuments(filters);
-  // const currentCount = products.length;
+  const products = await Product.aggregate(pipeline);
   res.status(200).json(
     new ApiResponse(200, {
       products,
     })
   );
 });
-
+//how i added the products in bulk
 // const addManyProducts = asyncHandler(async (req, res) => {
 //   async function fetchAll() {
 //     const res = await fetch("https://dummyjson.com/products?limit=0");
