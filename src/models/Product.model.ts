@@ -7,7 +7,13 @@ import { WarrantyPolicy } from "./WarrantyInfo.model.ts";
 
 const ImageSchema = new mongoose.Schema({
   src: { type: String, required: true },
-  alt: { type: String, required: true },
+  alt: {
+    type: String,
+    default: function (this: any) {
+      // 'this' is the subdocument; we can access parentDocument
+      return this?.ownerDocument?.().title || "default title";
+    },
+  },
 });
 
 const VarientSchema = new mongoose.Schema({
@@ -69,7 +75,7 @@ const ProductSchema = new mongoose.Schema({
   },
   dimensions: {
     type: [DimensionSchema],
-    required: true,
+    default: null,
   },
   return_policy: {
     type: mongoose.Schema.Types.ObjectId,

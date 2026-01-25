@@ -38,6 +38,7 @@ const createCategories = asyncHandler(async (req, res) => {
 
 const getAllCategory = asyncHandler(async (req, res) => {
   const category = await Category.find();
+  console.log(category);
   res
     .status(200)
     .json(new ApiResponse(200, category, "all category succesfully extacted"));

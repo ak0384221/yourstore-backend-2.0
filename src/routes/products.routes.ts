@@ -1,9 +1,9 @@
 import { Router } from "express";
 import {
-  addProducts,
+  addProduct,
   getOneProduct,
   getProducts,
-  removeProducts,
+  removeProduct,
 } from "../controllers/product.controller.ts";
 import {
   verifyAdminRole,
@@ -12,8 +12,8 @@ import {
 import { upload } from "../middlewares/multer.middleware.ts";
 
 const productsRouter = Router();
-productsRouter.route("/").post(addProducts);
-productsRouter.route("/:id").delete(verifyJWT, verifyAdminRole, removeProducts);
+// productsRouter.route("/").post(addProducts);
+// productsRouter.route("/:id").delete(verifyJWT, verifyAdminRole, removeProducts);
 productsRouter.route("/").get(getProducts);
 
 export default productsRouter;

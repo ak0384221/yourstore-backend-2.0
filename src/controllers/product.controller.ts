@@ -5,7 +5,7 @@ import { Product } from "../models/Product.model.ts";
 import { ApiResponse } from "../utils/apiResponse.ts";
 import { uploadOnCloudinary } from "../utils/cloudinary.ts";
 import fs from "fs";
-const addProducts = asyncHandler(async (req, res) => {
+const addProduct = asyncHandler(async (req, res) => {
   //get all the necessary fields
   //validate fields
   //validate fields presense
@@ -22,21 +22,15 @@ const addProducts = asyncHandler(async (req, res) => {
     base_price,
     images,
     brand,
+    rating,
     varients,
     category,
     discount,
   } = req.body;
 
-  console.log(
-    title,
-    description,
-    base_price,
-    images,
-    brand,
-    varients,
-    category,
-    discount
-  );
+  console.log(req.body);
+
+  console.log(req.files);
   //title validation
   if (!title || title.trim().length < 6) {
     throw new ApiError(400, "title is required");
@@ -100,7 +94,7 @@ const addProducts = asyncHandler(async (req, res) => {
     // Add to images array in DB format
     uploadedImages.push({
       src: result.secure_url,
-      alt: req.body.alts?.[i] || "", // optional alt text
+      // alt: req.body.alts?.[i] || "", // optional alt text
     });
   }
 
@@ -109,6 +103,7 @@ const addProducts = asyncHandler(async (req, res) => {
     description,
     base_price,
     brand,
+    rating,
     category,
     discount: discount ?? null,
     images: uploadedImages,
@@ -127,7 +122,7 @@ const addProducts = asyncHandler(async (req, res) => {
     );
 });
 
-const removeProducts = asyncHandler(async (req, res) => {
+const removeProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const user = req.user;
@@ -482,4 +477,4 @@ const getOneProduct = asyncHandler(async (req, res) => {
 //   res.json(newProducts);
 // });
 
-export { addProducts, removeProducts, getProducts, getOneProduct };
+export { addProduct, removeProduct, getProducts, getOneProduct };
