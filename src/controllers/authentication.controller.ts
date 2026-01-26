@@ -68,6 +68,9 @@ const login = asyncHandler(async function (req, res) {
   //matching password
   const isPassValid = await existedUser.isPasswordCorrect(password);
   //generate access,refresg tokens
+  if (!isPassValid) {
+    throw new ApiError(500, "Invalid credentials");
+  }
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
     existedUser._id
   );

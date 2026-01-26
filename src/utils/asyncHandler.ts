@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { ApiError } from "./apiError.ts";
 
 type AsyncFunction = (
   req: Request,
@@ -11,9 +12,7 @@ function asyncHandler(fn: AsyncFunction) {
     try {
       await fn(req, res, next);
     } catch (err: any) {
-      res
-        .status(err.code || 500)
-        .json({ success: false, message: err.message });
+      throw new ApiError(err.code || 500, err.message);
     }
   };
 }

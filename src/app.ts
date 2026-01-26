@@ -27,6 +27,7 @@ import {
   getAllReturnPolicy,
 } from "./controllers/returnPolicy.controller.ts";
 import productRouter from "./routes/product.route.ts";
+import { errorHandler } from "./middlewares/GError.middleware.ts";
 
 //routes declaration
 
@@ -53,4 +54,5 @@ app.post(
 );
 app.post("/api/v1/warrantyInfo", verifyJWT, verifyAdminRole, createDiscount);
 
+app.use(errorHandler);
 export { app };
