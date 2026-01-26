@@ -3,7 +3,6 @@ import { ApiError } from "../utils/apiError.ts";
 import { ApiResponse } from "../utils/apiResponse.ts";
 import { asyncHandler } from "../utils/asyncHandler.ts";
 import jwt from "jsonwebtoken";
-
 async function generateAccessAndRefreshToken(id: any) {
   try {
     const user = await User.findById(id);
@@ -23,6 +22,8 @@ async function generateAccessAndRefreshToken(id: any) {
 const signUp = asyncHandler(async (req, res) => {
   //take data from req.body
   const { email, fullName, password, gender } = req.body;
+  const start = Date.now();
+  const minResTime = 500;
 
   //validate if there is all data
   if (
@@ -36,6 +37,10 @@ const signUp = asyncHandler(async (req, res) => {
   //check if existed
   const existedUser = await User.findOne({ email });
   if (existedUser) {
+    const elapsed = Date.now() - start;
+    if (elapsed < minResTime) {
+      await new Promise((r) => setTimeout(r, minResTime - elapsed));
+    }
     throw new ApiError(504, "email already exist");
   }
 
@@ -47,11 +52,18 @@ const signUp = asyncHandler(async (req, res) => {
   const myUser = await User.findById(response._id).select(
     "-password -refreshToken"
   );
+  const elapsed = Date.now() - start;
+  if (elapsed < minResTime) {
+    await new Promise((r) => setTimeout(r, minResTime - elapsed));
+  }
 
   res.status(200).json(new ApiResponse(200, myUser));
 });
 
 const login = asyncHandler(async function (req, res) {
+  const start = Date.now();
+  const minResTime = 500;
+  const genericMsg = "Invalid Credentials";
   //getting email and pass from body
   const { email, password } = req.body;
   //validating props
@@ -62,14 +74,18 @@ const login = asyncHandler(async function (req, res) {
   const existedUser = await User.findOne({ email });
 
   if (!existedUser) {
-    throw new ApiError(500, "Invalid credentials");
+    const elapsed = Date.now() - start;
+    if (elapsed < minResTime) {
+      await new Promise((r) => setTimeout(r, minResTime - elapsed));
+    }
+    throw new ApiError(404, "Invalid credentials");
   }
 
   //matching password
   const isPassValid = await existedUser.isPasswordCorrect(password);
   //generate access,refresg tokens
   if (!isPassValid) {
-    throw new ApiError(500, "Invalid credentials");
+    throw new ApiError(404, "Invalid credentials");
   }
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
     existedUser._id
@@ -83,6 +99,10 @@ const login = asyncHandler(async function (req, res) {
   const loggedInUser = await User.findById(existedUser._id).select(
     "-password -refreshToken"
   );
+  const elapsed = Date.now() - start;
+  if (elapsed < minResTime) {
+    await new Promise((r) => setTimeout(r, minResTime - elapsed));
+  }
   // returning user data along with tokens
   return res
     .status(200)

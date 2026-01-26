@@ -16,10 +16,7 @@ const errorHandler = (err, req, res, next) => {
   // 🟢 SAFE RESPONSE
   res.status(statusCode).json({
     success: false,
-    message:
-      statusCode === 500
-        ? "Something went wrong. Please try again later."
-        : err.message,
+    message: err.message,
     errors: statusCode === 500 ? [] : isApiError ? err.errors : [],
     data: null,
   });
