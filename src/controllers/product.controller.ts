@@ -165,8 +165,97 @@ const getProducts = asyncHandler(async (req, res) => {
     }
   }
 
-  const pipeline = [];
+  // const pipeline = [];
 
+  // if (req.query.search) {
+  //   pipeline.push({
+  //     $search: {
+  //       index: "products_search_index",
+  //       compound: {
+  //         should: [
+  //           {
+  //             autocomplete: {
+  //               query: req.query.search,
+  //               path: "title",
+  //               fuzzy: {
+  //                 maxEdits: 2,
+  //                 prefixLength: 1,
+  //               },
+  //             },
+  //           },
+  //           {
+  //             text: {
+  //               query: req.query.search,
+  //               path: "description",
+  //               fuzzy: {
+  //                 maxEdits: 1,
+  //               },
+  //             },
+  //           },
+  //         ],
+  //       },
+  //     },
+  //   });
+
+  //   // expose search score
+  //   pipeline.push({
+  //     $addFields: {
+  //       score: { $meta: "searchScore" },
+  //     },
+  //   });
+  // }
+
+  // pipeline.push(
+  //   { $match: filters },
+  //   {
+  //     $facet: {
+  //       products: [
+  //         { $sort: req.query.search ? { score: -1 } : { createdAt: -1 } },
+  //         { $skip: skip },
+  //         { $limit: limit },
+
+  //         {
+  //           $lookup: {
+  //             from: "brands",
+  //             localField: "brand",
+  //             foreignField: "_id",
+  //             as: "brand",
+  //           },
+  //         },
+  //         { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+
+  //         {
+  //           $lookup: {
+  //             from: "discounts",
+  //             localField: "discount",
+  //             foreignField: "_id",
+  //             as: "discount",
+  //           },
+  //         },
+  //         { $unwind: { path: "$discount", preserveNullAndEmptyArrays: true } },
+
+  //         {
+  //           $project: {
+  //             title: 1,
+  //             base_price: 1,
+  //             rating: 1,
+  //             images: { $slice: ["$images", 2] },
+  //             varients: 1,
+  //             brand: { _id: 1, name: 1 },
+  //             discount: { amount: 1, type: 1 },
+  //           },
+  //         },
+  //       ],
+  //       totalCount: [{ $count: "count" }],
+  //     },
+  //   }
+  // );
+
+  const now = new Date();
+
+  const pipeline: any[] = [];
+
+  // Search stage
   if (req.query.search) {
     pipeline.push({
       $search: {
@@ -177,19 +266,14 @@ const getProducts = asyncHandler(async (req, res) => {
               autocomplete: {
                 query: req.query.search,
                 path: "title",
-                fuzzy: {
-                  maxEdits: 2,
-                  prefixLength: 1,
-                },
+                fuzzy: { maxEdits: 2, prefixLength: 1 },
               },
             },
             {
               text: {
                 query: req.query.search,
                 path: "description",
-                fuzzy: {
-                  maxEdits: 1,
-                },
+                fuzzy: { maxEdits: 1 },
               },
             },
           ],
@@ -197,59 +281,138 @@ const getProducts = asyncHandler(async (req, res) => {
       },
     });
 
-    // expose search score
     pipeline.push({
-      $addFields: {
-        score: { $meta: "searchScore" },
-      },
+      $addFields: { score: { $meta: "searchScore" } },
     });
   }
 
-  pipeline.push(
-    { $match: filters },
-    {
-      $facet: {
-        products: [
-          { $sort: req.query.search ? { score: -1 } : { createdAt: -1 } },
-          { $skip: skip },
-          { $limit: limit },
+  // Apply filters
+  pipeline.push({ $match: filters });
 
-          {
-            $lookup: {
-              from: "brands",
-              localField: "brand",
-              foreignField: "_id",
-              as: "brand",
+  // Facet stage for pagination
+  pipeline.push({
+    $facet: {
+      products: [
+        { $sort: req.query.search ? { score: -1 } : { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+
+        // Brand lookup
+        {
+          $lookup: {
+            from: "brands",
+            localField: "brand",
+            foreignField: "_id",
+            as: "brand",
+          },
+        },
+        { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+
+        // Category lookup
+        {
+          $lookup: {
+            from: "categories",
+            localField: "category",
+            foreignField: "_id",
+            as: "category",
+          },
+        },
+        { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
+
+        // Discount lookup
+        {
+          $lookup: {
+            from: "discounts",
+            localField: "discount",
+            foreignField: "_id",
+            as: "discount",
+          },
+        },
+        { $unwind: { path: "$discount", preserveNullAndEmptyArrays: true } },
+
+        // Calculate active discount and finalPrice
+        {
+          $addFields: {
+            discount: {
+              $cond: [
+                {
+                  $and: [
+                    { $gte: ["$$NOW", "$discount.startDate"] },
+                    { $lte: ["$$NOW", "$discount.endDate"] },
+                    {
+                      $or: [
+                        { $eq: ["$discount.applicableTo", "all"] },
+                        {
+                          $and: [
+                            { $eq: ["$discount.applicableTo", "category"] },
+                            { $in: ["$category._id", "$discount.categoryIds"] },
+                          ],
+                        },
+                        {
+                          $and: [
+                            { $eq: ["$discount.applicableTo", "product"] },
+                            { $in: ["$_id", "$discount.productIds"] },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  $mergeObjects: [
+                    "$discount",
+                    {
+                      finalPrice: {
+                        $cond: [
+                          { $eq: ["$discount.type", "percent"] },
+                          {
+                            $multiply: [
+                              "$base_price",
+                              {
+                                $subtract: [
+                                  1,
+                                  { $divide: ["$discount.amount", 100] },
+                                ],
+                              },
+                            ],
+                          },
+                          { $subtract: ["$base_price", "$discount.amount"] },
+                        ],
+                      },
+                    },
+                  ],
+                },
+                null,
+              ],
             },
           },
-          { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+        },
 
-          {
-            $lookup: {
-              from: "discounts",
-              localField: "discount",
-              foreignField: "_id",
-              as: "discount",
-            },
-          },
-          { $unwind: { path: "$discount", preserveNullAndEmptyArrays: true } },
-
-          {
-            $project: {
+        // Project only necessary fields
+        {
+          $project: {
+            title: 1,
+            base_price: 1,
+            rating: 1,
+            images: { $slice: ["$images", 2] },
+            varients: 1,
+            brand: { _id: 1, name: 1 },
+            category: { _id: 1, name: 1 },
+            discount: {
               title: 1,
-              base_price: 1,
-              rating: 1,
-              images: { $slice: ["$images", 2] },
-              varients: 1,
-              brand: { _id: 1, name: 1 },
-              discount: { amount: 1, type: 1 },
+              type: 1,
+              amount: 1,
+              applicableTo: 1,
+              startDate: 1,
+              endDate: 1,
+              finalPrice: 1,
             },
           },
-        ],
-        totalCount: [{ $count: "count" }],
-      },
-    }
-  );
+        },
+      ],
+      totalCount: [{ $count: "count" }],
+    },
+  });
 
   const products = await Product.aggregate(pipeline);
   res.status(200).json(

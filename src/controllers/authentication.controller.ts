@@ -48,16 +48,14 @@ const signUp = asyncHandler(async (req, res) => {
   const newUser = new User({ email, fullName, password, gender });
   const response = await newUser.save();
 
-  //do a new query to find the user and fnally return only surface level data
-  const myUser = await User.findById(response._id).select(
-    "-password -refreshToken"
-  );
+  //do a new query to find the user and finally return only surface level data
+
   const elapsed = Date.now() - start;
   if (elapsed < minResTime) {
     await new Promise((r) => setTimeout(r, minResTime - elapsed));
   }
 
-  res.status(200).json(new ApiResponse(200, myUser));
+  res.status(200).json(new ApiResponse(200, "user created successfully"));
 });
 
 const login = asyncHandler(async function (req, res) {
@@ -96,9 +94,7 @@ const login = asyncHandler(async function (req, res) {
     secure: false,
   };
   //gettng the logged in users data
-  const loggedInUser = await User.findById(existedUser._id).select(
-    "-password -refreshToken"
-  );
+
   const elapsed = Date.now() - start;
   if (elapsed < minResTime) {
     await new Promise((r) => setTimeout(r, minResTime - elapsed));
@@ -111,11 +107,7 @@ const login = asyncHandler(async function (req, res) {
     .json(
       new ApiResponse(
         200,
-        {
-          user: loggedInUser,
-          accessToken,
-          refreshToken,
-        },
+
         "logged in successfully"
       )
     );
