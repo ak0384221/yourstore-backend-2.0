@@ -49,7 +49,6 @@ const signUp = asyncHandler(async (req, res) => {
   const response = await newUser.save();
 
   //do a new query to find the user and finally return only surface level data
-
   const elapsed = Date.now() - start;
   if (elapsed < minResTime) {
     await new Promise((r) => setTimeout(r, minResTime - elapsed));
@@ -94,7 +93,6 @@ const login = asyncHandler(async function (req, res) {
     secure: false,
   };
   //gettng the logged in users data
-
   const elapsed = Date.now() - start;
   if (elapsed < minResTime) {
     await new Promise((r) => setTimeout(r, minResTime - elapsed));
@@ -104,13 +102,7 @@ const login = asyncHandler(async function (req, res) {
     .status(200)
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
-    .json(
-      new ApiResponse(
-        200,
-
-        "logged in successfully"
-      )
-    );
+    .json(new ApiResponse(200, "logged in successfully"));
 });
 
 const logout = asyncHandler(async function (req, res) {

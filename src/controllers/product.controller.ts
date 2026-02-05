@@ -5,6 +5,7 @@ import { Product } from "../models/Product.model.ts";
 import { ApiResponse } from "../utils/apiResponse.ts";
 import { uploadOnCloudinary } from "../utils/cloudinary.ts";
 import fs from "fs";
+
 const addProduct = asyncHandler(async (req, res) => {
   //get all the necessary fields
   //validate fields
@@ -165,92 +166,6 @@ const getProducts = asyncHandler(async (req, res) => {
     }
   }
 
-  // const pipeline = [];
-
-  // if (req.query.search) {
-  //   pipeline.push({
-  //     $search: {
-  //       index: "products_search_index",
-  //       compound: {
-  //         should: [
-  //           {
-  //             autocomplete: {
-  //               query: req.query.search,
-  //               path: "title",
-  //               fuzzy: {
-  //                 maxEdits: 2,
-  //                 prefixLength: 1,
-  //               },
-  //             },
-  //           },
-  //           {
-  //             text: {
-  //               query: req.query.search,
-  //               path: "description",
-  //               fuzzy: {
-  //                 maxEdits: 1,
-  //               },
-  //             },
-  //           },
-  //         ],
-  //       },
-  //     },
-  //   });
-
-  //   // expose search score
-  //   pipeline.push({
-  //     $addFields: {
-  //       score: { $meta: "searchScore" },
-  //     },
-  //   });
-  // }
-
-  // pipeline.push(
-  //   { $match: filters },
-  //   {
-  //     $facet: {
-  //       products: [
-  //         { $sort: req.query.search ? { score: -1 } : { createdAt: -1 } },
-  //         { $skip: skip },
-  //         { $limit: limit },
-
-  //         {
-  //           $lookup: {
-  //             from: "brands",
-  //             localField: "brand",
-  //             foreignField: "_id",
-  //             as: "brand",
-  //           },
-  //         },
-  //         { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
-
-  //         {
-  //           $lookup: {
-  //             from: "discounts",
-  //             localField: "discount",
-  //             foreignField: "_id",
-  //             as: "discount",
-  //           },
-  //         },
-  //         { $unwind: { path: "$discount", preserveNullAndEmptyArrays: true } },
-
-  //         {
-  //           $project: {
-  //             title: 1,
-  //             base_price: 1,
-  //             rating: 1,
-  //             images: { $slice: ["$images", 2] },
-  //             varients: 1,
-  //             brand: { _id: 1, name: 1 },
-  //             discount: { amount: 1, type: 1 },
-  //           },
-  //         },
-  //       ],
-  //       totalCount: [{ $count: "count" }],
-  //     },
-  //   }
-  // );
-
   const now = new Date();
 
   const pipeline: any[] = [];
@@ -289,130 +204,180 @@ const getProducts = asyncHandler(async (req, res) => {
   // Apply filters
   pipeline.push({ $match: filters });
 
-  // Facet stage for pagination
-  pipeline.push({
-    $facet: {
-      products: [
-        { $sort: req.query.search ? { score: -1 } : { createdAt: -1 } },
-        { $skip: skip },
-        { $limit: limit },
-
-        // Brand lookup
-        {
-          $lookup: {
-            from: "brands",
-            localField: "brand",
-            foreignField: "_id",
-            as: "brand",
+  pipeline.push(
+    {
+      $sort: req.query.search ? { score: -1 } : { createdAt: -1 },
+    },
+    { $skip: skip },
+    { $limit: limit },
+    {
+      $lookup: {
+        from: "discounts",
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $lte: ["$startDate", "$$NOW"] },
+                  { $gte: ["$endDate", "$$NOW"] },
+                ],
+              },
+            },
           },
-        },
-        { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
-
-        // Category lookup
-        {
-          $lookup: {
-            from: "categories",
-            localField: "category",
-            foreignField: "_id",
-            as: "category",
-          },
-        },
-        { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
-
-        // Discount lookup
-        {
-          $lookup: {
-            from: "discounts",
-            localField: "discount",
-            foreignField: "_id",
+        ],
+        as: "activeDiscounts",
+      },
+    },
+    {
+      $addFields: {
+        applicableDiscounts: {
+          $filter: {
+            input: "$activeDiscounts",
             as: "discount",
-          },
-        },
-        { $unwind: { path: "$discount", preserveNullAndEmptyArrays: true } },
+            cond: {
+              $or: [
+                // applicableTo: "all"
+                {
+                  $eq: ["$$discount.applicableTo", "all"],
+                },
 
-        // Calculate active discount and finalPrice
-        {
-          $addFields: {
-            discount: {
-              $cond: [
+                // applicableTo: "category"
                 {
                   $and: [
-                    { $gte: ["$$NOW", "$discount.startDate"] },
-                    { $lte: ["$$NOW", "$discount.endDate"] },
                     {
-                      $or: [
-                        { $eq: ["$discount.applicableTo", "all"] },
+                      $eq: ["$$discount.applicableTo", "category"],
+                    },
+                    {
+                      $in: ["$category", "$$discount.categoryIds"],
+                    },
+                  ],
+                },
+
+                // applicableTo: "product"
+                {
+                  $and: [
+                    {
+                      $eq: ["$$discount.applicableTo", "product"],
+                    },
+                    {
+                      $in: ["$_id", "$$discount.productIds"],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      },
+    },
+    {
+      $addFields: {
+        discount: {
+          $arrayElemAt: ["$applicableDiscounts", 0],
+        },
+      },
+    },
+    {
+      $addFields: {
+        final_price: {
+          $cond: [
+            { $ifNull: ["$discount", false] },
+
+            {
+              $cond: [
+                {
+                  $eq: ["$discount.type", "percent"],
+                },
+                {
+                  $subtract: [
+                    "$base_price",
+                    {
+                      $multiply: [
+                        "$base_price",
                         {
-                          $and: [
-                            { $eq: ["$discount.applicableTo", "category"] },
-                            { $in: ["$category._id", "$discount.categoryIds"] },
-                          ],
-                        },
-                        {
-                          $and: [
-                            { $eq: ["$discount.applicableTo", "product"] },
-                            { $in: ["$_id", "$discount.productIds"] },
-                          ],
+                          $divide: ["$discount.amount", 100],
                         },
                       ],
                     },
                   ],
                 },
                 {
-                  $mergeObjects: [
-                    "$discount",
-                    {
-                      finalPrice: {
-                        $cond: [
-                          { $eq: ["$discount.type", "percent"] },
-                          {
-                            $multiply: [
-                              "$base_price",
-                              {
-                                $subtract: [
-                                  1,
-                                  { $divide: ["$discount.amount", 100] },
-                                ],
-                              },
-                            ],
-                          },
-                          { $subtract: ["$base_price", "$discount.amount"] },
-                        ],
-                      },
-                    },
-                  ],
+                  $subtract: ["$base_price", "$discount.amount"],
                 },
-                null,
               ],
             },
-          },
-        },
 
-        // Project only necessary fields
-        {
-          $project: {
-            title: 1,
-            base_price: 1,
-            rating: 1,
-            images: { $slice: ["$images", 2] },
-            varients: 1,
-            brand: { _id: 1, name: 1 },
-            category: { _id: 1, name: 1 },
-            discount: {
-              title: 1,
-              type: 1,
-              amount: 1,
-              applicableTo: 1,
-              startDate: 1,
-              endDate: 1,
-              finalPrice: 1,
-            },
-          },
+            "$base_price",
+          ],
         },
-      ],
-      totalCount: [{ $count: "count" }],
+      },
     },
-  });
+    {
+      $lookup: {
+        from: "categories",
+        localField: "category",
+        foreignField: "_id",
+        as: "category",
+      },
+    },
+    {
+      $unwind: {
+        path: "$category",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $lookup: {
+        from: "brands",
+        localField: "brand",
+        foreignField: "_id",
+        as: "brand",
+      },
+    },
+    {
+      $unwind: {
+        path: "$brand",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $lookup: {
+        from: "returnpolicies",
+        localField: "return_policy",
+        foreignField: "_id",
+        as: "return_policy",
+      },
+    },
+    {
+      $unwind: {
+        path: "$return_policy",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $project: {
+        title: 1,
+        base_price: 1,
+        final_price: 1,
+        discount: {
+          title: 1,
+          amount: 1,
+          type: 1,
+        },
+        brand: {
+          _id: 1,
+          name: 1,
+          slug: 1,
+        },
+        category: {
+          _id: 1,
+          name: 1,
+          slug: 1,
+        },
+        images: { $slice: ["$images", 2] },
+      },
+    }
+  );
 
   const products = await Product.aggregate(pipeline);
   res.status(200).json(
@@ -424,26 +389,103 @@ const getProducts = asyncHandler(async (req, res) => {
 
 const getOneProduct = asyncHandler(async (req, res) => {
   const { productId } = req.params;
+
   if (!productId && productId == "") {
     throw new ApiError(400, "Product id must be valid and not empty");
   }
   const _id = new mongoose.Types.ObjectId(productId);
 
   const product = await Product.aggregate([
-    { $match: { _id } }, // Find the product by _id
+    // 1️⃣ Match single product
+    { $match: { _id: _id } },
 
-    // Look up Brand
+    // 2️⃣ Lookup active discounts
     {
       $lookup: {
-        from: "brands", // collection name
-        localField: "brand",
-        foreignField: "_id",
-        as: "brand",
+        from: "discounts",
+        let: { productId: "$_id", categoryId: "$category" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $lte: ["$startDate", "$$NOW"] },
+                  { $gte: ["$endDate", "$$NOW"] },
+                ],
+              },
+            },
+          },
+        ],
+        as: "activeDiscounts",
       },
     },
-    { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
 
-    // Look up Category
+    // 3️⃣ Filter applicable discounts
+    {
+      $addFields: {
+        applicableDiscounts: {
+          $filter: {
+            input: "$activeDiscounts",
+            as: "discount",
+            cond: {
+              $or: [
+                { $eq: ["$$discount.applicableTo", "all"] },
+                {
+                  $and: [
+                    { $eq: ["$$discount.applicableTo", "category"] },
+                    { $in: ["$category", "$$discount.categoryIds"] },
+                  ],
+                },
+                {
+                  $and: [
+                    { $eq: ["$$discount.applicableTo", "product"] },
+                    { $in: ["$_id", "$$discount.productIds"] },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      },
+    },
+
+    // 4️⃣ Take first applicable discount
+    {
+      $addFields: {
+        discount: { $arrayElemAt: ["$applicableDiscounts", 0] },
+      },
+    },
+
+    // 5️⃣ Calculate final price
+    {
+      $addFields: {
+        final_price: {
+          $cond: [
+            { $ifNull: ["$discount", false] },
+            {
+              $cond: [
+                { $eq: ["$discount.type", "percent"] },
+                {
+                  $subtract: [
+                    "$base_price",
+                    {
+                      $multiply: [
+                        "$base_price",
+                        { $divide: ["$discount.amount", 100] },
+                      ],
+                    },
+                  ],
+                },
+                { $subtract: ["$base_price", "$discount.amount"] },
+              ],
+            },
+            "$base_price",
+          ],
+        },
+      },
+    },
+
+    // 6️⃣ Lookup references
     {
       $lookup: {
         from: "categories",
@@ -453,19 +495,15 @@ const getOneProduct = asyncHandler(async (req, res) => {
       },
     },
     { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
-
-    // Look up Discount
     {
       $lookup: {
-        from: "discounts",
-        localField: "discount",
+        from: "brands",
+        localField: "brand",
         foreignField: "_id",
-        as: "discount",
+        as: "brand",
       },
     },
-    { $unwind: { path: "$discount", preserveNullAndEmptyArrays: true } },
-
-    // Look up Return Policy
+    { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
     {
       $lookup: {
         from: "returnpolicies",
@@ -476,39 +514,32 @@ const getOneProduct = asyncHandler(async (req, res) => {
     },
     { $unwind: { path: "$return_policy", preserveNullAndEmptyArrays: true } },
 
-    // Look up Warranty
-    {
-      $lookup: {
-        from: "warrantypolicies",
-        localField: "warranty_info",
-        foreignField: "_id",
-        as: "warranty_info",
-      },
-    },
-    { $unwind: { path: "$warranty_info", preserveNullAndEmptyArrays: true } },
-
-    // Optionally project fields for cleaner output
+    // 7️⃣ Project fields
     {
       $project: {
         title: 1,
-        description: 1,
         base_price: 1,
-        rating: 1,
-        images: 1,
+        final_price: 1,
+        discount: { title: 1, amount: 1, type: 1 },
+        brand: { _id: 1, name: 1, slug: 1 },
+        category: { _id: 1, name: 1, slug: 1 },
+        images: {
+          $map: {
+            input: { $slice: ["$images", 2] },
+            as: "img",
+            in: { src: "$$img.src", alt: "$$img.alt" },
+          },
+        },
         varients: 1,
         dimensions: 1,
-        brand: { _id: 1, name: 1 },
-        category: { _id: 1, name: 1 },
-        discount: { amount: 1, type: 1 },
         return_policy: 1,
         warranty_info: 1,
       },
     },
   ]);
+  console.log(product);
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, product[0], "product found succesfully"));
+  res.status(200).json(new ApiResponse(200, product, "product found "));
 });
 
 //how i added the products in bulk
