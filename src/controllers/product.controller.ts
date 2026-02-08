@@ -205,9 +205,9 @@ const getProducts = asyncHandler(async (req, res) => {
   pipeline.push({ $match: filters });
 
   pipeline.push(
-    {
-      $sort: req.query.search ? { score: -1 } : { createdAt: -1 },
-    },
+    // {
+    //   $sort: req.query.search ? { score: -1 } : { createdAt: -1 },
+    // },
     { $skip: skip },
     { $limit: limit },
     {
@@ -518,6 +518,7 @@ const getOneProduct = asyncHandler(async (req, res) => {
     {
       $project: {
         title: 1,
+        description: 1,
         base_price: 1,
         final_price: 1,
         discount: { title: 1, amount: 1, type: 1 },
@@ -534,10 +535,10 @@ const getOneProduct = asyncHandler(async (req, res) => {
         dimensions: 1,
         return_policy: 1,
         warranty_info: 1,
+        rating: 1,
       },
     },
   ]);
-  console.log(product);
 
   res.status(200).json(new ApiResponse(200, product, "product found "));
 });

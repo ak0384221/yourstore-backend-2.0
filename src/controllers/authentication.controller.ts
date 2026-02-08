@@ -3,17 +3,32 @@ import { ApiError } from "../utils/apiError.ts";
 import { ApiResponse } from "../utils/apiResponse.ts";
 import { asyncHandler } from "../utils/asyncHandler.ts";
 import jwt from "jsonwebtoken";
-async function generateAccessAndRefreshToken(id: any) {
+import { isPasswordCorrect } from "../utils/password.ts";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+} from "../utils/tokenGenerate.ts";
+import { AuthSession } from "../models/refreshToken.model.ts";
+import bcrypt from "bcrypt";
+
+async function generateAccessAndRefreshToken(id: any, userAgent, ip) {
   try {
-    const user = await User.findById(id);
-    const accessToken = user.generateAccessToken();
-    const refreshToken = user.generateRefreshToken();
-    user.refreshToken = refreshToken;
-    await user?.save({ validateBeforeSave: false });
+    // const user = await User.findById(id);
+    const expiresAt = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // 1 day
+    const result = await AuthSession.create({
+      userId: id,
+      isRevoked: false,
+      expiresAt: expiresAt,
+      ip: ip,
+      userAgent: userAgent,
+    });
+    const accessToken = generateAccessToken(id);
+    const refreshToken = generateRefreshToken(result);
+
     return { accessToken, refreshToken };
   } catch (err) {
     throw new ApiError(
-      500,
+      400,
       "Something went wrong while generating referesh and access token"
     );
   }
@@ -45,8 +60,7 @@ const signUp = asyncHandler(async (req, res) => {
   }
 
   //create new User
-  const newUser = new User({ email, fullName, password, gender });
-  const response = await newUser.save();
+  const newUser = await User.create({ email, fullName, password, gender });
 
   //do a new query to find the user and finally return only surface level data
   const elapsed = Date.now() - start;
@@ -58,6 +72,9 @@ const signUp = asyncHandler(async (req, res) => {
 });
 
 const login = asyncHandler(async function (req, res) {
+  const userAgent = req.headers["user-agent"];
+  const ip = req.ip;
+  console.log(userAgent, ip);
   const start = Date.now();
   const minResTime = 500;
   const genericMsg = "Invalid Credentials";
@@ -79,13 +96,15 @@ const login = asyncHandler(async function (req, res) {
   }
 
   //matching password
-  const isPassValid = await existedUser.isPasswordCorrect(password);
+  const isPassValid = await isPasswordCorrect(existedUser, password);
   //generate access,refresg tokens
   if (!isPassValid) {
     throw new ApiError(404, "Invalid credentials");
   }
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-    existedUser._id
+    existedUser._id,
+    userAgent,
+    ip
   );
 
   const options = {
@@ -106,31 +125,37 @@ const login = asyncHandler(async function (req, res) {
 });
 
 const logout = asyncHandler(async function (req, res) {
-  const user = req.user;
-  if (!user) {
-    throw new ApiError(505, "coudnt find user");
+  const refreshToken =
+    req.cookies?.refreshToken ||
+    req.header("Authorization")?.replace("Bearer", "").trim();
+
+  if (!refreshToken) {
+    throw new ApiError(401, "No token provided");
   }
 
-  await User.findByIdAndUpdate(
-    user._id,
-    {
-      $unset: {
-        refreshToken: 1,
-      },
-    },
-    { new: true }
-  );
+  let decoded;
+  try {
+    decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET!);
+  } catch (err) {
+    throw new ApiError(401, "Invalid or expired refresh token");
+  }
 
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
+  // jti = session _id
+  const sessionId = decoded.jti;
+  const d = sessionId.toString();
+  console.log(sessionId, typeof sessionId);
 
-  return res
+  console.log(d, typeof d);
+
+  const response = await AuthSession.findByIdAndUpdate(sessionId, {
+    isRevoked: true,
+  });
+  console.log(response);
+  res
+    .cookie("accessToken", "", { httpOnly: true, expires: new Date(0) })
+    .cookie("refreshToken", "", { httpOnly: true, expires: new Date(0) })
     .status(200)
-    .clearCookie("accessToken", options)
-    .clearCookie("refreshToken", options)
-    .json(new ApiResponse(200, {}, "logged out"));
+    .json({ message: "Logged out successfully" });
 });
 
 const refreshAccessToken = asyncHandler(async (req, res, next) => {
@@ -143,15 +168,15 @@ const refreshAccessToken = asyncHandler(async (req, res, next) => {
   //decode ref token
   const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET!);
   //db query by id
-  const user = await User.findById(decoded.id);
+  const user = await AuthSession.findById(decoded.jti);
   //find user and validate
   if (!user) {
-    throw new ApiError(505, "no user found");
+    throw new ApiError(505, "Error");
   }
 
   //match the ref tokens
-  if (token !== user.refreshToken) {
-    throw new ApiError(401, "Refresh token is expired");
+  if (user.isRevoked) {
+    throw new ApiError(401, "Revoked");
   } //dontmatch=>err
 
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
@@ -179,15 +204,31 @@ const refreshAccessToken = asyncHandler(async (req, res, next) => {
 const changePassword = asyncHandler(async (req, res) => {
   const { oldPass, newPass } = req.body;
   const user = await User.findById(req.user._id);
-  const isPasswordCorrect = await user.isPasswordCorrect(oldPass);
-  if (!isPasswordCorrect) {
-    throw new ApiError(400, "invalid credentials");
+
+  // 1️⃣ Verify old password
+  const isCorrect = await isPasswordCorrect(user, oldPass);
+  if (!isCorrect) {
+    throw new ApiError(400, "Invalid current password");
   }
 
-  user.password = newPass;
-  await user.save({ validateBeforeSave: false });
+  // 2️⃣ Optional: Validate password strength
+  if (newPass.length < 8) {
+    throw new ApiError(400, "Password must be at least 8 characters");
+  }
 
-  return res.status(200).json(new ApiResponse(200, {}, "pass changed"));
+  // 3️⃣ Update password
+  user.password = newPass; // pre-save hook will hash it
+  await user.save(); // do NOT skip validation
+
+  // 4️⃣ Revoke all sessions
+  await AuthSession.updateMany(
+    { userId: user._id, isRevoked: false },
+    { isRevoked: true }
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password changed successfully"));
 });
 
 export { signUp, login, logout, refreshAccessToken, changePassword };

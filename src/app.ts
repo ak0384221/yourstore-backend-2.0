@@ -2,6 +2,7 @@ import e from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 const app = e();
+app.set("trust proxy", 1);
 app.use(cors({ origin: "*", credentials: true }));
 app.use(e.json());
 app.use(e.urlencoded({ extended: true }));
