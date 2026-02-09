@@ -5,6 +5,7 @@ import { Product } from "../models/Product.model.ts";
 import { ApiResponse } from "../utils/apiResponse.ts";
 import { uploadOnCloudinary } from "../utils/cloudinary.ts";
 import fs from "fs";
+import { buildProductPipeline } from "../aggregation/product/product.pipeline.ts";
 
 const addProduct = asyncHandler(async (req, res) => {
   //get all the necessary fields
@@ -139,21 +140,13 @@ const removeProduct = asyncHandler(async (req, res) => {
 
 const getProducts = asyncHandler(async (req, res) => {
   const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 10;
+  const limit = Number(req.query.limit) < 50 ? Number(req.query.limit) : 10;
   const skip = (page - 1) * limit;
-
+  const searchQuery = req.query.search?.toString();
   const filters = {};
-  //Product.find({category:'mobiles',title:{$regex:''phone,options:'i'},base_price:{$gte:''}})
 
   if (req.query.category) {
     filters.category = new mongoose.Types.ObjectId(String(req.query.category));
-  }
-
-  if (req.query.search) {
-    filters.title = {
-      $regex: req.query.search,
-      $options: "i",
-    };
   }
 
   if (req.query.minPrice || req.query.maxPrice) {
@@ -166,220 +159,16 @@ const getProducts = asyncHandler(async (req, res) => {
     }
   }
 
-  const now = new Date();
-
-  const pipeline: any[] = [];
-
-  // Search stage
-  if (req.query.search) {
-    pipeline.push({
-      $search: {
-        index: "products_search_index",
-        compound: {
-          should: [
-            {
-              autocomplete: {
-                query: req.query.search,
-                path: "title",
-                fuzzy: { maxEdits: 2, prefixLength: 1 },
-              },
-            },
-            {
-              text: {
-                query: req.query.search,
-                path: "description",
-                fuzzy: { maxEdits: 1 },
-              },
-            },
-          ],
-        },
-      },
-    });
-
-    pipeline.push({
-      $addFields: { score: { $meta: "searchScore" } },
-    });
-  }
-
-  // Apply filters
-  pipeline.push({ $match: filters });
-
-  pipeline.push(
-    // {
-    //   $sort: req.query.search ? { score: -1 } : { createdAt: -1 },
-    // },
-    { $skip: skip },
-    { $limit: limit },
-    {
-      $lookup: {
-        from: "discounts",
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $lte: ["$startDate", "$$NOW"] },
-                  { $gte: ["$endDate", "$$NOW"] },
-                ],
-              },
-            },
-          },
-        ],
-        as: "activeDiscounts",
-      },
-    },
-    {
-      $addFields: {
-        applicableDiscounts: {
-          $filter: {
-            input: "$activeDiscounts",
-            as: "discount",
-            cond: {
-              $or: [
-                // applicableTo: "all"
-                {
-                  $eq: ["$$discount.applicableTo", "all"],
-                },
-
-                // applicableTo: "category"
-                {
-                  $and: [
-                    {
-                      $eq: ["$$discount.applicableTo", "category"],
-                    },
-                    {
-                      $in: ["$category", "$$discount.categoryIds"],
-                    },
-                  ],
-                },
-
-                // applicableTo: "product"
-                {
-                  $and: [
-                    {
-                      $eq: ["$$discount.applicableTo", "product"],
-                    },
-                    {
-                      $in: ["$_id", "$$discount.productIds"],
-                    },
-                  ],
-                },
-              ],
-            },
-          },
-        },
-      },
-    },
-    {
-      $addFields: {
-        discount: {
-          $arrayElemAt: ["$applicableDiscounts", 0],
-        },
-      },
-    },
-    {
-      $addFields: {
-        final_price: {
-          $cond: [
-            { $ifNull: ["$discount", false] },
-
-            {
-              $cond: [
-                {
-                  $eq: ["$discount.type", "percent"],
-                },
-                {
-                  $subtract: [
-                    "$base_price",
-                    {
-                      $multiply: [
-                        "$base_price",
-                        {
-                          $divide: ["$discount.amount", 100],
-                        },
-                      ],
-                    },
-                  ],
-                },
-                {
-                  $subtract: ["$base_price", "$discount.amount"],
-                },
-              ],
-            },
-
-            "$base_price",
-          ],
-        },
-      },
-    },
-    {
-      $lookup: {
-        from: "categories",
-        localField: "category",
-        foreignField: "_id",
-        as: "category",
-      },
-    },
-    {
-      $unwind: {
-        path: "$category",
-        preserveNullAndEmptyArrays: true,
-      },
-    },
-    {
-      $lookup: {
-        from: "brands",
-        localField: "brand",
-        foreignField: "_id",
-        as: "brand",
-      },
-    },
-    {
-      $unwind: {
-        path: "$brand",
-        preserveNullAndEmptyArrays: true,
-      },
-    },
-    {
-      $lookup: {
-        from: "returnpolicies",
-        localField: "return_policy",
-        foreignField: "_id",
-        as: "return_policy",
-      },
-    },
-    {
-      $unwind: {
-        path: "$return_policy",
-        preserveNullAndEmptyArrays: true,
-      },
-    },
-    {
-      $project: {
-        title: 1,
-        base_price: 1,
-        final_price: 1,
-        discount: {
-          title: 1,
-          amount: 1,
-          type: 1,
-        },
-        brand: {
-          _id: 1,
-          name: 1,
-          slug: 1,
-        },
-        category: {
-          _id: 1,
-          name: 1,
-          slug: 1,
-        },
-        images: { $slice: ["$images", 2] },
-      },
-    }
+  const products = await Product.aggregate(
+    buildProductPipeline({
+      match: filters,
+      view: "LIST",
+      skip,
+      limit,
+      searchQuery,
+    })
   );
 
-  const products = await Product.aggregate(pipeline);
   res.status(200).json(
     new ApiResponse(200, {
       products,
@@ -395,150 +184,9 @@ const getOneProduct = asyncHandler(async (req, res) => {
   }
   const _id = new mongoose.Types.ObjectId(productId);
 
-  const product = await Product.aggregate([
-    // 1️⃣ Match single product
-    { $match: { _id: _id } },
-
-    // 2️⃣ Lookup active discounts
-    {
-      $lookup: {
-        from: "discounts",
-        let: { productId: "$_id", categoryId: "$category" },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $lte: ["$startDate", "$$NOW"] },
-                  { $gte: ["$endDate", "$$NOW"] },
-                ],
-              },
-            },
-          },
-        ],
-        as: "activeDiscounts",
-      },
-    },
-
-    // 3️⃣ Filter applicable discounts
-    {
-      $addFields: {
-        applicableDiscounts: {
-          $filter: {
-            input: "$activeDiscounts",
-            as: "discount",
-            cond: {
-              $or: [
-                { $eq: ["$$discount.applicableTo", "all"] },
-                {
-                  $and: [
-                    { $eq: ["$$discount.applicableTo", "category"] },
-                    { $in: ["$category", "$$discount.categoryIds"] },
-                  ],
-                },
-                {
-                  $and: [
-                    { $eq: ["$$discount.applicableTo", "product"] },
-                    { $in: ["$_id", "$$discount.productIds"] },
-                  ],
-                },
-              ],
-            },
-          },
-        },
-      },
-    },
-
-    // 4️⃣ Take first applicable discount
-    {
-      $addFields: {
-        discount: { $arrayElemAt: ["$applicableDiscounts", 0] },
-      },
-    },
-
-    // 5️⃣ Calculate final price
-    {
-      $addFields: {
-        final_price: {
-          $cond: [
-            { $ifNull: ["$discount", false] },
-            {
-              $cond: [
-                { $eq: ["$discount.type", "percent"] },
-                {
-                  $subtract: [
-                    "$base_price",
-                    {
-                      $multiply: [
-                        "$base_price",
-                        { $divide: ["$discount.amount", 100] },
-                      ],
-                    },
-                  ],
-                },
-                { $subtract: ["$base_price", "$discount.amount"] },
-              ],
-            },
-            "$base_price",
-          ],
-        },
-      },
-    },
-
-    // 6️⃣ Lookup references
-    {
-      $lookup: {
-        from: "categories",
-        localField: "category",
-        foreignField: "_id",
-        as: "category",
-      },
-    },
-    { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
-    {
-      $lookup: {
-        from: "brands",
-        localField: "brand",
-        foreignField: "_id",
-        as: "brand",
-      },
-    },
-    { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
-    {
-      $lookup: {
-        from: "returnpolicies",
-        localField: "return_policy",
-        foreignField: "_id",
-        as: "return_policy",
-      },
-    },
-    { $unwind: { path: "$return_policy", preserveNullAndEmptyArrays: true } },
-
-    // 7️⃣ Project fields
-    {
-      $project: {
-        title: 1,
-        description: 1,
-        base_price: 1,
-        final_price: 1,
-        discount: { title: 1, amount: 1, type: 1 },
-        brand: { _id: 1, name: 1, slug: 1 },
-        category: { _id: 1, name: 1, slug: 1 },
-        images: {
-          $map: {
-            input: { $slice: ["$images", 2] },
-            as: "img",
-            in: { src: "$$img.src", alt: "$$img.alt" },
-          },
-        },
-        varients: 1,
-        dimensions: 1,
-        return_policy: 1,
-        warranty_info: 1,
-        rating: 1,
-      },
-    },
-  ]);
+  const product = await Product.aggregate(
+    buildProductPipeline({ match: { _id: _id }, view: "DETAIL" })
+  );
 
   res.status(200).json(new ApiResponse(200, product, "product found "));
 });
