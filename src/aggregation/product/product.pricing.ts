@@ -1,7 +1,20 @@
 export const pricingStages = [
+  // 1️⃣ Ensure category is joined first
+  {
+    $lookup: {
+      from: "categories",
+      localField: "category",
+      foreignField: "_id",
+      as: "category",
+    },
+  },
+  { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
+
+  // 2️⃣ Lookup active discounts using productId and categoryId
   {
     $lookup: {
       from: "discounts",
+      let: { productId: "$_id", categoryId: "$category._id" },
       pipeline: [
         {
           $match: {
@@ -17,6 +30,8 @@ export const pricingStages = [
       as: "activeDiscounts",
     },
   },
+
+  // 3️⃣ Filter applicable discounts
   {
     $addFields: {
       applicableDiscounts: {
@@ -29,7 +44,7 @@ export const pricingStages = [
               {
                 $and: [
                   { $eq: ["$$discount.applicableTo", "category"] },
-                  { $in: ["$category", "$$discount.categoryIds"] },
+                  { $in: ["$category._id", "$$discount.categoryIds"] },
                 ],
               },
               {
@@ -44,7 +59,15 @@ export const pricingStages = [
       },
     },
   },
-  { $addFields: { discount: { $arrayElemAt: ["$applicableDiscounts", 0] } } },
+
+  // 4️⃣ Pick first applicable discount
+  {
+    $addFields: {
+      discount: { $arrayElemAt: ["$applicableDiscounts", 0] },
+    },
+  },
+
+  // 5️⃣ Compute final_price
   {
     $addFields: {
       final_price: {

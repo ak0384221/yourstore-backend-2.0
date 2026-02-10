@@ -167,11 +167,6 @@ const getProducts = asyncHandler(async (req, res) => {
     searchQuery,
   });
 
-  res.json({
-    products,
-    total,
-  });
-
   res.status(200).json(
     new ApiResponse(200, {
       products,
