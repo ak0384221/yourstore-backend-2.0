@@ -74,7 +74,6 @@ const signUp = asyncHandler(async (req, res) => {
 const login = asyncHandler(async function (req, res) {
   const userAgent = req.headers["user-agent"];
   const ip = req.ip;
-  console.log(userAgent, ip);
   const start = Date.now();
   const minResTime = 500;
   const genericMsg = "Invalid Credentials";
@@ -142,15 +141,10 @@ const logout = asyncHandler(async function (req, res) {
 
   // jti = session _id
   const sessionId = decoded.jti;
-  const d = sessionId.toString();
-  console.log(sessionId, typeof sessionId);
-
-  console.log(d, typeof d);
 
   const response = await AuthSession.findByIdAndUpdate(sessionId, {
     isRevoked: true,
   });
-  console.log(response);
   res
     .cookie("accessToken", "", { httpOnly: true, expires: new Date(0) })
     .cookie("refreshToken", "", { httpOnly: true, expires: new Date(0) })

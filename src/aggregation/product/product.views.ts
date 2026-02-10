@@ -6,7 +6,17 @@ export const viewProjections = {
         base_price: 1,
         final_price: 1,
         rating: 1,
-        activeDiscounts: 1,
+        activeDiscounts: {
+          _id: 1,
+          title: 1,
+          type: 1,
+          amount: 1,
+          applicableTo: 1,
+          productIds: 1,
+          categoryIds: 1,
+          startDate: 1,
+          endDate: 1,
+        },
         brand: { _id: 1, name: 1, slug: 1 },
         category: { _id: 1, name: 1, slug: 1 },
         images: { $slice: ["$images", 2] },
@@ -21,7 +31,17 @@ export const viewProjections = {
         base_price: 1,
         final_price: 1,
         rating: 1,
-        activeDiscounts: 1,
+        activeDiscounts: {
+          _id: 1,
+          title: 1,
+          type: 1,
+          amount: 1,
+          applicableTo: 1,
+          productIds: 1,
+          categoryIds: 1,
+          startDate: 1,
+          endDate: 1,
+        },
         brand: { _id: 1, name: 1, slug: 1 },
         category: { _id: 1, name: 1, slug: 1 },
         images: 1,
@@ -34,13 +54,6 @@ export const viewProjections = {
   ],
   CART: [
     {
-      $addFields: {
-        item_total: {
-          $multiply: ["$quantity", "$final_price"],
-        },
-      },
-    },
-    {
       $group: {
         _id: "$userId",
         items: {
@@ -50,17 +63,21 @@ export const viewProjections = {
             images: "$images",
             brand: "$brand",
             activeDiscounts: "$activeDiscounts",
-
             category: "$category",
-            price: "$final_price",
+            final_price: "$final_price",
             base_price: "$base_price",
             quantity: "$quantity",
             selectedSize: "$selectedSize",
             selectedColor: "$selectedColor",
-            item_total: "$item_total",
           },
         },
-        cart_total: { $sum: "$item_total" },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        userId: "$_id",
+        items: 1,
       },
     },
   ],

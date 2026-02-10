@@ -14,7 +14,6 @@ const addToCart = asyncHandler(async (req, res) => {
   //-----------------------//
   const { productId, selectedSize, selectedColor, selectedQuantity } = req.body;
   const user = req.user;
-  console.log("prosuct id", productId);
   if (
     !productId ||
     !selectedSize ||
@@ -41,7 +40,6 @@ const addToCart = asyncHandler(async (req, res) => {
   if (!existedCartItem) {
     const isProductAvailable = await Product.findById(productId);
 
-    console.log("product", isProductAvailable);
     if (!isProductAvailable) {
       throw new ApiError(400, "product unavailable");
     }

@@ -43,7 +43,6 @@ const createDiscount = asyncHandler(async (req, res) => {
         startDate,
         endDate,
       });
-      console.log(newDiscount);
       return res.status(200).json(new ApiResponse(200, "discount added"));
 
       //db call
