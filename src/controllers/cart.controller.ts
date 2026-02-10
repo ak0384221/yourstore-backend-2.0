@@ -1,8 +1,10 @@
+import mongoose from "mongoose";
 import { Cart } from "../models/Cart.model.ts";
 import { Product } from "../models/Product.model.ts";
 import { ApiError } from "../utils/apiError.ts";
 import { ApiResponse } from "../utils/apiResponse.ts";
 import { asyncHandler } from "../utils/asyncHandler.ts";
+import { getCartService } from "../service/cart.service.ts";
 
 const addToCart = asyncHandler(async (req, res) => {
   //get id,size,color and the user
@@ -12,6 +14,7 @@ const addToCart = asyncHandler(async (req, res) => {
   //-----------------------//
   const { productId, selectedSize, selectedColor, selectedQuantity } = req.body;
   const user = req.user;
+  console.log("prosuct id", productId);
   if (
     !productId ||
     !selectedSize ||
@@ -34,8 +37,11 @@ const addToCart = asyncHandler(async (req, res) => {
     selectedSize,
     selectedColor,
   });
+
   if (!existedCartItem) {
     const isProductAvailable = await Product.findById(productId);
+
+    console.log("product", isProductAvailable);
     if (!isProductAvailable) {
       throw new ApiError(400, "product unavailable");
     }
@@ -93,14 +99,22 @@ const removeFromCart = asyncHandler(async (req, res) => {
 
 const getAllCart = asyncHandler(async (req, res) => {
   const user = req.user;
-  const userCartItems = await Cart.find({ userId: user._id });
-  if (!userCartItems) {
-    throw new ApiError(500, "empty cart !! no item found");
-  }
+  // const userCartItems = await Cart.find({ userId: user._id });
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, userCartItems, "succesfully found the items"));
+  const _id = new mongoose.Types.ObjectId(user._id);
+
+  const { cart, totalItems } = await getCartService(req.user._id);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        cart,
+        totalItems,
+      },
+      "cart items"
+    )
+  );
 });
 
 export { addToCart, removeFromCart, getAllCart };

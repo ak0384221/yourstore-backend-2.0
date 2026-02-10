@@ -6,6 +6,7 @@ import { ApiResponse } from "../utils/apiResponse.ts";
 import { uploadOnCloudinary } from "../utils/cloudinary.ts";
 import fs from "fs";
 import { buildProductPipeline } from "../aggregation/product/product.pipeline.ts";
+import { getProductsService } from "../service/product.service.ts";
 
 const addProduct = asyncHandler(async (req, res) => {
   //get all the necessary fields
@@ -159,19 +160,22 @@ const getProducts = asyncHandler(async (req, res) => {
     }
   }
 
-  const products = await Product.aggregate(
-    buildProductPipeline({
-      match: filters,
-      view: "LIST",
-      skip,
-      limit,
-      searchQuery,
-    })
-  );
+  const { products, total } = await getProductsService({
+    filters,
+    skip,
+    limit,
+    searchQuery,
+  });
+
+  res.json({
+    products,
+    total,
+  });
 
   res.status(200).json(
     new ApiResponse(200, {
       products,
+      total,
     })
   );
 });
@@ -185,7 +189,11 @@ const getOneProduct = asyncHandler(async (req, res) => {
   const _id = new mongoose.Types.ObjectId(productId);
 
   const product = await Product.aggregate(
-    buildProductPipeline({ match: { _id: _id }, view: "DETAIL" })
+    buildProductPipeline({
+      source: "PRODUCT",
+      view: "DETAIL",
+      match: { _id },
+    })
   );
 
   res.status(200).json(new ApiResponse(200, product, "product found "));
