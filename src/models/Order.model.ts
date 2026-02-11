@@ -1,45 +1,53 @@
 import mongoose from "mongoose";
 import { User } from "./User.model";
 import { Product } from "./Product.model";
+import { Discount } from "./Discount.model";
 
-const OrderItemsSchema = new mongoose.Schema({
-  ProductId: {
+const OrderItemSchema = new mongoose.Schema({
+  productId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: Product,
-    required: true,
+    ref: "Product",
+    required: false,
   },
-  color: {
-    type: String,
-    required: true,
+
+  // 🔒 SNAPSHOT — source of truth
+  productTitle: { type: String, required: true },
+
+  brand: {
+    _id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Brand",
+    },
+    name: String,
+    slug: String,
   },
-  size: {
-    type: String,
-    required: true,
+
+  category: {
+    _id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+    },
+    name: String,
+    slug: String,
   },
-  base_price: {
-    type: Number,
-    required: true,
-  },
-  discount_rate: {
-    type: Number,
-    required: true,
-  },
+
+  base_price: { type: Number, required: true },
+  final_price: { type: Number, required: true },
+
   discount: {
-    type: Number,
-    required: true,
+    _id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Discount",
+    },
+    title: String,
+    type: String,
+    amount: Number,
   },
-  finalAmount: {
-    type: Number,
-    required: true,
-  },
-  quantity: {
-    type: Number,
-    required: true,
-  },
-  subtotal: {
-    type: Number,
-    required: true,
-  },
+
+  color: String,
+  size: String,
+  quantity: { type: Number, required: true },
+  subtotal: { type: Number, required: true },
 });
 
 const OrderSchema = new mongoose.Schema(
@@ -58,7 +66,16 @@ const OrderSchema = new mongoose.Schema(
       type: String,
       enum: ["Cash On Delivery", "Bkash", "Rocket"],
     },
-    items: [OrderItemsSchema],
+    items: [OrderItemSchema],
+    totalAmount: {
+      type: Number,
+      required: true,
+    },
+    ItemCount: {
+      type: Number,
+      required: true,
+    },
+    transaction: { type: mongoose.Schema.Types.ObjectId, ref: "Transaction" }, // NEW
   },
   { timestamps: true }
 );
