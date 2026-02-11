@@ -71,7 +71,7 @@ const OrderSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    ItemCount: {
+    itemCount: {
       type: Number,
       required: true,
     },

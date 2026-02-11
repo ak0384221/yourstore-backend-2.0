@@ -1,3 +1,4 @@
+import { normalizeOrderInput } from "../service/order/normalizeOrderInput.ts";
 import { asyncHandler } from "../utils/asyncHandler.ts";
 
 const addOrder = asyncHandler(async (req, res) => {
@@ -6,6 +7,18 @@ const addOrder = asyncHandler(async (req, res) => {
   //need items[]
   //need [{productId,color,size,quantity}]
   //need to caculate
+  // const validatedItem = {
+  //     productId: product._id,
+  //     productTitle: product.title,
+  //     category: product.category,
+  //     brand: product.brand,
+  //     base_price: product.base_price,
+  //     selectedSize,
+  //     quantity,
+  //     selectedColor,
+  //     variantId: variant._id,
+  //   };
+
   const obj = {
     productId: "objectId",
     color: "red",
@@ -35,6 +48,9 @@ const addOrder = asyncHandler(async (req, res) => {
       },
     ],
   };
+  const normalized = normalizeOrderInput(req.body);
+
+  res.json(normalized);
 });
 
 const getOrder = asyncHandler(async (req, res) => {});

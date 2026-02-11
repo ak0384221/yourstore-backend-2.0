@@ -7,14 +7,11 @@ import { asyncHandler } from "../utils/asyncHandler.ts";
  * Can be used in addToCart, direct order, or other routes
  */
 const validateSelectedItem = asyncHandler(async (req, res, next) => {
-  const { productId, selectedSize, selectedColor, selectedQuantity } = req.body;
+  const { productId, selectedSize, selectedColor, quantity = 1 } = req.body;
 
   // 1️⃣ Basic input validation
-  if (!productId || !selectedSize || !selectedColor || !selectedQuantity) {
+  if (!productId || !selectedSize || !selectedColor || !quantity) {
     throw new ApiError(400, "All fields are required");
-  }
-  if (selectedQuantity <= 0) {
-    throw new ApiError(400, "Quantity must be at least 1");
   }
 
   // 2️⃣ Fetch product from DB
@@ -23,12 +20,9 @@ const validateSelectedItem = asyncHandler(async (req, res, next) => {
     throw new ApiError(404, "Product not found");
   }
 
-  // 3️⃣ Check variant availability
+  // 3️⃣ Check variant availability`
   const variant = product.varients.find(
-    (v) =>
-      v.size === selectedSize &&
-      v.color === selectedColor &&
-      v.stock >= selectedQuantity
+    (v) => v.size === selectedSize && v.color === selectedColor
   );
 
   if (!variant) {
@@ -39,19 +33,18 @@ const validateSelectedItem = asyncHandler(async (req, res, next) => {
   }
 
   // 4️⃣ Attach validated info to request for downstream use
-  req.validatedItem = {
+  const validatedItem = {
     productId: product._id,
     productTitle: product.title,
-    brand: product.brand,
     category: product.category,
+    brand: product.brand,
     base_price: product.base_price,
-    final_price: product.final_price, // can recalc if needed
-    activeDiscounts: product.activeDiscounts || [],
     selectedSize,
+    quantity,
     selectedColor,
-    quantity: selectedQuantity,
     variantId: variant._id,
   };
+  req.validatedItem = validatedItem;
 
   next();
 });
