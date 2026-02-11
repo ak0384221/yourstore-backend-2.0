@@ -29,13 +29,14 @@ import {
 } from "./controllers/returnPolicy.controller.ts";
 import productRouter from "./routes/product.route.ts";
 import { errorHandler } from "./middlewares/GError.middleware.ts";
+import orderRouter from "./routes/order.routes.ts";
 
 //routes declaration
 
 app.use("/api/v1/auth", userRouter);
 app.use("/api/v1/products", productsRouter);
 app.use("/api/v1/product", productRouter);
-
+app.use("/api/v1/order", orderRouter);
 app.use("/api/v1/cart", cartRouter);
 app.post(
   "/api/v1/categories/:name",

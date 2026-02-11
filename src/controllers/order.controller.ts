@@ -1,6 +1,6 @@
 import { asyncHandler } from "../utils/asyncHandler.ts";
 
-const order = asyncHandler(async (req, res) => {
+const addOrder = asyncHandler(async (req, res) => {
   //need user id that will be found in req.user
   //need pay method a string
   //need items[]
@@ -37,4 +37,8 @@ const order = asyncHandler(async (req, res) => {
   };
 });
 
-export { order };
+const getOrder = asyncHandler(async (req, res) => {});
+
+const getAllOrder = asyncHandler(async (req, res) => {});
+
+export { getOrder, getAllOrder, addOrder };

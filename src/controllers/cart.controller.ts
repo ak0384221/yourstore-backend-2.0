@@ -1,80 +1,57 @@
 import mongoose from "mongoose";
 import { Cart } from "../models/Cart.model.ts";
-import { Product } from "../models/Product.model.ts";
 import { ApiError } from "../utils/apiError.ts";
 import { ApiResponse } from "../utils/apiResponse.ts";
 import { asyncHandler } from "../utils/asyncHandler.ts";
 import { getCartService } from "../service/cart.service.ts";
 
 const addToCart = asyncHandler(async (req, res) => {
-  //get id,size,color and the user
-  //validate inputs
-  //check if that specfic user has already the specific product with same atrribute or not
-  //if same then update the quantity andif not then add another cart
-  //-----------------------//
-  const { productId, selectedSize, selectedColor, selectedQuantity } = req.body;
-  const user = req.user;
-  if (
-    !productId ||
-    !selectedSize ||
-    !selectedColor ||
-    selectedQuantity == null ||
-    selectedQuantity == 0
-  ) {
-    throw new ApiError(400, "fields must not be empty");
-  }
-  //0 check the limit
-  const isLimitExceed = await Cart.countDocuments({ userId: user._id });
-  if (isLimitExceed > 20) {
-    throw new ApiError(500, "cart is full, cannot add more than 20");
+  const userId = req.user._id;
+  const { productId, selectedSize, selectedColor, quantity } =
+    req.validatedItem;
+
+  // Cart limit check (optional)
+  const cartCount = await Cart.countDocuments({ userId });
+  if (cartCount >= 20) {
+    throw new ApiError(400, "Cart is full, cannot add more than 20 items");
   }
 
-  //1.find the user cart from cart
-  const existedCartItem = await Cart.findOne({
-    userId: user._id,
-    product: productId,
-    selectedSize,
-    selectedColor,
-  });
-
-  if (!existedCartItem) {
-    const isProductAvailable = await Product.findById(productId);
-
-    if (!isProductAvailable) {
-      throw new ApiError(400, "product unavailable");
-    }
-
-    //check 2 => varients availabilty
-    const isVariantAvailable = isProductAvailable.varients.find((v) => {
-      return (
-        v.size === selectedSize &&
-        v.color === selectedColor &&
-        v.stock >= selectedQuantity
-      );
-    });
-    if (!isVariantAvailable) {
-      throw new ApiError(400, "product unavailable");
-    }
-
-    //create new cart item
-    const newCartItem = await Cart.create({
-      userId: user._id,
+  // 1️⃣ Try to insert if not exists
+  const cartItem = await Cart.findOneAndUpdate(
+    {
+      userId,
       product: productId,
-      selectedColor,
       selectedSize,
-      selectedQuantity,
-    });
-
-    return res
-      .status(200)
-      .json(new ApiResponse(200, newCartItem, "cart item added succesfully"));
+      selectedColor,
+    },
+    {
+      $setOnInsert: {
+        userId,
+        product: productId,
+        selectedSize,
+        selectedColor,
+        selectedQuantity: quantity,
+      },
+    },
+    {
+      upsert: true, // insert if not exists
+      new: true, // return the document after update/insert
+      includeResultMetadata: true, // get info about whether it was inserted
+    }
+  );
+  console.log(cartItem.lastErrorObject?.upserted);
+  // 2️⃣ Check if the item was already present
+  if (!cartItem.lastErrorObject?.upserted) {
+    throw new ApiError(
+      400,
+      "This product with the selected variant already exists in your cart"
+    );
   }
 
-  existedCartItem.selectedQuantity += Number(selectedQuantity);
-  const updatedItem = await existedCartItem.save();
+  // 3️⃣ Successfully inserted
   res
     .status(200)
-    .json(new ApiResponse(200, updatedItem, "cart item added succesfully"));
+    .json(new ApiResponse(200, cartItem.value, "Cart item added successfully"));
 });
 
 const removeFromCart = asyncHandler(async (req, res) => {

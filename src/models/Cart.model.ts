@@ -20,17 +20,12 @@ const CartSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    selectedQuantity: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
   },
   { timestamps: true }
 );
 
 CartSchema.index(
-  { user: 1, product: 1, selectedSize: 1, selectedColor: 1 },
+  { userId: 1, product: 1, selectedSize: 1, selectedColor: 1 },
   { unique: true }
 );
 
