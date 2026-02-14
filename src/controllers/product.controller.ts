@@ -160,17 +160,20 @@ const getProducts = asyncHandler(async (req, res) => {
     }
   }
 
-  const { products, total } = await getProductsService({
-    filters,
-    skip,
-    limit,
-    searchQuery,
-  });
+  const products = await Product.aggregate(
+    buildProductPipeline({
+      source: "PRODUCT",
+      view: "LIST",
+      limit,
+      skip,
+      searchQuery,
+    })
+  );
 
   res.status(200).json(
     new ApiResponse(200, {
       products,
-      total,
+      // total,
     })
   );
 });
